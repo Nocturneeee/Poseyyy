@@ -1,27 +1,31 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const video = document.getElementById('video');
-  const canvas = document.getElementById('canvas');
+  const videoElem = document.getElementById('camera-video');
+  const canvasElem = document.getElementById('preview-canvas');
   const placeholder = document.getElementById('cameraPlaceholder');
-  const shutterBtn = document.getElementById('shutterBtn');
+  const shutterBtn = document.getElementById('shutter-btn');
   const mirrorBtn = document.getElementById('mirrorBtn');
   const uploadInput = document.getElementById('uploadInput');
   const shotCountEl = document.getElementById('shotCount');
   const totalShotsEl = document.getElementById('totalShots');
   const downloadBtn = document.getElementById('downloadBtn');
+  const retakeBtn = document.getElementById('retakeBtn');
   const cameraStatus = document.getElementById('cameraStatus');
   const activeFilterLabel = document.getElementById('activeFilterLabel');
-  const thumbs = document.querySelectorAll('.thumb');
   const filterChoices = document.querySelectorAll('.filter-choice');
+  const timerChoices = document.querySelectorAll('.timer-choice');
   const filterTabs = document.querySelectorAll('.filter');
   const container = document.getElementById('templateCategoriesContainer');
+  const controlRow = document.getElementById('controlRow');
 
   let stream = null;
   let currentFilter = 'none';
   let isMirrored = true;
   let currentLayout = 4;
   let shots = [];
+  let selectedTimer = 3;
+  let isCountingDown = false;
+  let viewMode = 'camera'; // 'camera' | 'preview'
 
-  // 3. Verify FRAME_DATABASE Keys & Paths
   const FRAME_DATABASE = {
     'tebs-edition': {
       displayName: 'TEBS Edition',
@@ -51,16 +55,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  // 2. Fix localStorage & State Synchronization
   let storedFrame = localStorage.getItem('selectedFrame');
   if (!storedFrame || !FRAME_DATABASE[storedFrame]) {
-    storedFrame = 'halloween-red'; // default or fallback
+    storedFrame = 'halloween-red';
     localStorage.setItem('selectedFrame', storedFrame);
   }
   let selectedFrameKey = storedFrame;
-  console.log('Initial Loaded Selected Frame from localStorage:', selectedFrameKey);
 
-  // 2. UI Frame Picker & Sectioning with Cache-Busting
   function initTemplates(filterCategory = 'all') {
     if (!container) return;
     container.innerHTML = '';
@@ -128,20 +129,14 @@ document.addEventListener('DOMContentLoaded', () => {
   function selectFrame(key, scrollToStudio = true) {
     if (!FRAME_DATABASE[key]) return;
     selectedFrameKey = key;
-    // 2. Explicitly save to localStorage
     localStorage.setItem('selectedFrame', key);
 
     const selectedFrame = FRAME_DATABASE[key];
-    // 1. Console debugging
-    console.log('Selected Frame Key:', selectedFrameKey);
-    console.log('Loading Frame Image Path:', selectedFrame.frameImg);
-
     currentLayout = selectedFrame.slots.length;
-    totalShotsEl.textContent = currentLayout;
+    if (totalShotsEl) totalShotsEl.textContent = currentLayout;
     resetSession();
     updateThumbsContainer();
 
-    // Highlight active card
     document.querySelectorAll('.template-card').forEach(card => {
       if (card.dataset.id === key) {
         card.classList.add('featured');
@@ -151,12 +146,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (scrollToStudio) {
-      document.getElementById('studio').scrollIntoView({ behavior: 'smooth' });
+      const studioSec = document.getElementById('studio');
+      if (studioSec) studioSec.scrollIntoView({ behavior: 'smooth' });
     }
   }
 
   function updateThumbsContainer() {
     const thumbsWrap = document.getElementById('thumbs');
+    if (!thumbsWrap) return;
     thumbsWrap.className = `thumbs count-${currentLayout}`;
     thumbsWrap.innerHTML = '';
     for (let i = 0; i < currentLayout; i++) {
@@ -167,7 +164,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Filter tabs behavior
   filterTabs.forEach(tab => {
     tab.addEventListener('click', () => {
       filterTabs.forEach(t => t.classList.remove('active'));
@@ -177,39 +173,53 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Initialize camera
   async function initCamera() {
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
-      video.srcObject = stream;
-      placeholder.style.display = 'none';
-      cameraStatus.textContent = 'Camera live';
+      if (videoElem) videoElem.srcObject = stream;
+      if (placeholder) placeholder.style.display = 'none';
+      if (cameraStatus) cameraStatus.textContent = 'Camera live';
     } catch (err) {
       console.warn('Camera access denied or unavailable:', err);
-      cameraStatus.textContent = 'Camera off (Upload ready)';
+      if (cameraStatus) cameraStatus.textContent = 'Camera off (Upload ready)';
     }
   }
   initCamera();
 
-  // Mirror toggle
-  mirrorBtn.addEventListener('click', () => {
-    isMirrored = !isMirrored;
-    video.classList.toggle('unmirrored', !isMirrored);
+  if (mirrorBtn) {
+    mirrorBtn.addEventListener('click', () => {
+      isMirrored = !isMirrored;
+      if (videoElem) videoElem.classList.toggle('unmirrored', !isMirrored);
+    });
+  }
+
+  timerChoices.forEach(btn => {
+    btn.addEventListener('click', () => {
+      timerChoices.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedTimer = parseInt(btn.dataset.time, 10) || 3;
+    });
   });
 
-  // Filter selection
   filterChoices.forEach(btn => {
+    if (btn.classList.contains('timer-choice')) return;
     btn.addEventListener('click', () => {
-      filterChoices.forEach(b => b.classList.remove('active'));
+      filterChoices.forEach(b => {
+        if (!b.classList.contains('timer-choice')) b.classList.remove('active');
+      });
       btn.classList.add('active');
       currentFilter = btn.dataset.css;
-      activeFilterLabel.textContent = btn.textContent.toUpperCase();
+      if (activeFilterLabel) activeFilterLabel.textContent = btn.textContent.toUpperCase();
       applyFilterStyle();
+
+      if (viewMode === 'preview') {
+        renderFinalPreview();
+      }
     });
   });
 
   function applyFilterStyle() {
-    video.style.filter = getFilterCSS(currentFilter);
+    if (videoElem) videoElem.style.filter = getFilterCSS(currentFilter);
   }
 
   function getFilterCSS(filter) {
@@ -222,126 +232,212 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Shutter action
-  shutterBtn.addEventListener('click', () => {
-    if (shots.length >= currentLayout) return;
-    captureFrame();
-  });
-
-  // Upload handler
-  uploadInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        addShot(img);
-      };
-      img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-
-  function captureFrame() {
-    if (!stream && video.readyState !== 4) {
-      createMockShot();
-      return;
-    }
-    const w = video.videoWidth || 640;
-    const h = video.videoHeight || 480;
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    
-    ctx.filter = getFilterCSS(currentFilter);
-    if (isMirrored) {
-      ctx.translate(w, 0);
-      ctx.scale(-1, 1);
-    }
-    ctx.drawImage(video, 0, 0, w, h);
-    
-    const imgData = canvas.toDataURL('image/png');
-    const img = new Image();
-    img.onload = () => {
-      addShot(img);
-    };
-    img.src = imgData;
+  if (shutterBtn) {
+    shutterBtn.addEventListener('click', () => {
+      if (isCountingDown || shots.length >= currentLayout || viewMode !== 'camera') return;
+      startCountdownAndCapture();
+    });
   }
 
-  function createMockShot() {
-    canvas.width = 600;
-    canvas.height = 450;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#0284c7';
-    ctx.fillRect(0, 0, 600, 450);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 32px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(`Moment #${shots.length + 1}`, 300, 225);
+  function startCountdownAndCapture() {
+    isCountingDown = true;
+    let timeLeft = selectedTimer;
+    if (shutterBtn) {
+      shutterBtn.style.opacity = '0.6';
+      shutterBtn.style.pointerEvents = 'none';
+    }
+
+    if (cameraStatus) cameraStatus.textContent = `Capturing in ${timeLeft}s...`;
+
+    const timerInterval = setInterval(() => {
+      timeLeft--;
+      if (timeLeft > 0) {
+        if (cameraStatus) cameraStatus.textContent = `Capturing in ${timeLeft}s...`;
+      } else {
+        clearInterval(timerInterval);
+        if (cameraStatus) cameraStatus.textContent = 'Say cheese! 📸';
+        captureFrame();
+        isCountingDown = false;
+        if (shutterBtn) {
+          shutterBtn.style.opacity = '1';
+          shutterBtn.style.pointerEvents = 'auto';
+        }
+      }
+    }, 1000);
+  }
+
+  if (uploadInput) {
+    uploadInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          addShot(img);
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function captureFrame() {
+    const videoElem = document.getElementById('camera-video');
+    const shotCountElem = document.getElementById('shotCount');
+
+    // 1. Off-screen canvas snapshot
+    const hiddenCanvas = document.createElement('canvas');
+    hiddenCanvas.width = (videoElem && videoElem.videoWidth) || 1280;
+    hiddenCanvas.height = (videoElem && videoElem.videoHeight) || 720;
+    const ctx = hiddenCanvas.getContext('2d');
     
+    ctx.filter = getFilterCSS(currentFilter);
+    if (isMirrored && videoElem) {
+      ctx.translate(hiddenCanvas.width, 0);
+      ctx.scale(-1, 1);
+    }
+
+    if (videoElem && videoElem.readyState === videoElem.HAVE_ENOUGH_DATA) {
+      ctx.drawImage(videoElem, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
+    } else {
+      ctx.fillStyle = '#0284c7';
+      ctx.fillRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
+    }
+    
+    // Flash effect simulation
+    const flashDiv = document.createElement('div');
+    flashDiv.style.position = 'absolute';
+    flashDiv.style.top = '0';
+    flashDiv.style.left = '0';
+    flashDiv.style.width = '100%';
+    flashDiv.style.height = '100%';
+    flashDiv.style.background = '#ffffff';
+    flashDiv.style.zIndex = '50';
+    flashDiv.style.transition = 'opacity 0.3s ease';
+    const cameraWrap = document.querySelector('.camera-wrap');
+    if (cameraWrap) cameraWrap.appendChild(flashDiv);
+    setTimeout(() => { flashDiv.style.opacity = '0'; }, 50);
+    setTimeout(() => { flashDiv.remove(); }, 350);
+
+    const photoDataUrl = hiddenCanvas.toDataURL('image/png');
     const img = new Image();
-    img.onload = () => addShot(img);
-    img.src = canvas.toDataURL('image/png');
+    img.onload = () => {
+      // 2. Update Array & UI Safely
+      shots.push(img);
+      if (shotCountElem) {
+        shotCountElem.textContent = `${shots.length}`;
+      }
+      
+      const shotCounterElem = document.getElementById('shotCount');
+      if (shotCounterElem) {
+        // Updating parent text or span as requested
+      }
+      
+      const shotCountDisplay = document.querySelector('.shot-count');
+      if (shotCountDisplay) {
+        shotCountDisplay.innerHTML = `SHOT <b id="shotCount">${shots.length}</b> / <span id="totalShots">${currentLayout}</span>`;
+      }
+
+      const thumbSlots = document.querySelectorAll('.thumb');
+      const currentIndex = shots.length - 1;
+      if (thumbSlots[currentIndex]) {
+        thumbSlots[currentIndex].innerHTML = `<img src="${photoDataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;">`;
+        thumbSlots[currentIndex].classList.remove('empty');
+      }
+
+      // 3. Auto-Trigger Preview on Shot 4 (or currentLayout)
+      if (shots.length >= currentLayout) {
+        viewMode = 'preview';
+        if (videoElem) videoElem.style.display = 'none';
+        const canvasElem = document.getElementById('preview-canvas');
+        if (canvasElem) canvasElem.style.display = 'block';
+        const placeholder = document.getElementById('cameraPlaceholder');
+        if (placeholder) placeholder.style.display = 'none';
+        const controlRow = document.getElementById('controlRow');
+        if (controlRow) controlRow.style.display = 'none';
+        const downloadBtn = document.getElementById('downloadBtn');
+        if (downloadBtn) downloadBtn.disabled = false;
+        if (cameraStatus) cameraStatus.textContent = 'All photos captured! Preview below.';
+        
+        renderFinalPreview();
+      } else {
+        if (cameraStatus) cameraStatus.textContent = `Camera ready (${shots.length}/${currentLayout})`;
+      }
+    };
+    img.src = photoDataUrl;
   }
 
   function addShot(imgObj) {
     if (shots.length >= currentLayout) return;
     shots.push(imgObj);
     updateThumbs();
-    shotCountEl.textContent = shots.length;
+    if (shotCountEl) shotCountEl.textContent = shots.length;
 
     if (shots.length >= currentLayout) {
-      downloadBtn.disabled = false;
-      cameraStatus.textContent = 'Ready to download!';
-    } else {
-      cameraStatus.textContent = `Pose for photo #${shots.length + 1}!`;
-    }
-  }
+      // 1. Switch to preview mode with null guards
+      viewMode = 'preview';
+      const videoElem = document.getElementById('camera-video');
+      const canvasElem = document.getElementById('preview-canvas');
+      const placeholder = document.getElementById('cameraPlaceholder');
+      const controlRow = document.getElementById('controlRow');
+      const downloadBtn = document.getElementById('downloadBtn');
 
-  function updateThumbs() {
-    const thumbs = document.querySelectorAll('.thumb');
-    thumbs.forEach((thumb, idx) => {
-      thumb.innerHTML = '';
-      if (shots[idx]) {
-        const imgEl = document.createElement('img');
-        imgEl.src = shots[idx].src;
-        thumb.appendChild(imgEl);
-        thumb.classList.remove('empty');
-      } else {
-        thumb.textContent = `0${idx + 1}`;
-        thumb.classList.add('empty');
-      }
-    });
+      if (videoElem) videoElem.style.display = 'none';
+      if (canvasElem) canvasElem.style.display = 'block';
+      if (placeholder) placeholder.style.display = 'none';
+      if (controlRow) controlRow.style.display = 'none';
+      if (downloadBtn) downloadBtn.disabled = false;
+      if (cameraStatus) cameraStatus.textContent = 'All photos captured! Preview below.';
+      
+      renderFinalPreview();
+    } else {
+      if (cameraStatus) cameraStatus.textContent = `Camera ready (${shots.length}/${currentLayout})`;
+    }
   }
 
   function resetSession() {
     shots = [];
-    shotCountEl.textContent = '0';
-    downloadBtn.disabled = true;
-    cameraStatus.textContent = stream ? 'Camera live' : 'Camera off';
+    if (shotCountEl) shotCountEl.textContent = '0';
+    if (downloadBtn) downloadBtn.disabled = true;
+    if (cameraStatus) cameraStatus.textContent = stream ? 'Camera live' : 'Camera off';
+    
+    // 1. Reset Viewport & State with null guards
+    viewMode = 'camera';
+    if (videoElem) videoElem.style.display = 'block';
+    if (canvasElem) canvasElem.style.display = 'none';
+    if (!stream && placeholder) placeholder.style.display = 'flex';
+    if (controlRow) controlRow.style.display = 'flex';
+    isCountingDown = false;
+    if (shutterBtn) {
+      shutterBtn.style.opacity = '1';
+      shutterBtn.style.pointerEvents = 'auto';
+    }
     updateThumbs();
   }
 
-  // 3. Canvas Render Logic with Cache-Busting and Auto-Scale
-  downloadBtn.addEventListener('click', () => {
-    if (shots.length === 0 || !FRAME_DATABASE[selectedFrameKey]) return;
+  if (retakeBtn) {
+    retakeBtn.addEventListener('click', () => {
+      resetSession();
+      if (cameraStatus) cameraStatus.textContent = 'Session reset. Ready for new photos!';
+    });
+  }
+
+  // 3. Async Frame Preloading & Render Execution (renderFinalPreview)
+  function renderFinalPreview() {
+    const canvasElem = document.getElementById('preview-canvas');
+    if (shots.length === 0 || !FRAME_DATABASE[selectedFrameKey] || !canvasElem) return;
 
     const selectedFrame = FRAME_DATABASE[selectedFrameKey];
-    console.log('Downloading with Selected Frame Key:', selectedFrameKey);
-    console.log('Frame Image Path:', selectedFrame.frameImg);
-
     const frameImg = new Image();
     frameImg.crossOrigin = 'anonymous';
 
     frameImg.onload = () => {
-      const stripCanvas = document.createElement('canvas');
-      const ctx = stripCanvas.getContext('2d');
+      canvasElem.width = frameImg.naturalWidth;
+      canvasElem.height = frameImg.naturalHeight;
+      const ctx = canvasElem.getContext('2d');
 
-      stripCanvas.width = frameImg.naturalWidth;
-      stripCanvas.height = frameImg.naturalHeight;
-
-      ctx.clearRect(0, 0, stripCanvas.width, stripCanvas.height);
+      ctx.clearRect(0, 0, canvasElem.width, canvasElem.height);
 
       const scale = frameImg.naturalWidth / selectedFrame.figmaWidth;
 
@@ -355,17 +451,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
 
-      ctx.drawImage(frameImg, 0, 0, stripCanvas.width, stripCanvas.height);
-
-      const link = document.createElement('a');
-      link.download = `poseyyy-${selectedFrameKey}-${Date.now()}.png`;
-      link.href = stripCanvas.toDataURL('image/png');
-      link.click();
+      ctx.drawImage(frameImg, 0, 0, canvasElem.width, canvasElem.height);
+      console.log('Final Strip Preview Rendered Successfully on Canvas.');
     };
 
-    // 1. Cache-busting on frame download load
     frameImg.src = `${selectedFrame.frameImg}?t=${Date.now()}`;
-  });
+  }
+
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', () => {
+      if (shots.length === 0 || !FRAME_DATABASE[selectedFrameKey]) return;
+
+      const selectedFrame = FRAME_DATABASE[selectedFrameKey];
+      const frameImg = new Image();
+      frameImg.crossOrigin = 'anonymous';
+
+      frameImg.onload = () => {
+        const stripCanvas = document.createElement('canvas');
+        const ctx = stripCanvas.getContext('2d');
+
+        stripCanvas.width = frameImg.naturalWidth;
+        stripCanvas.height = frameImg.naturalHeight;
+
+        ctx.clearRect(0, 0, stripCanvas.width, stripCanvas.height);
+
+        const scale = frameImg.naturalWidth / selectedFrame.figmaWidth;
+
+        selectedFrame.slots.forEach((slot, index) => {
+          if (shots[index]) {
+            const sX = slot.x * scale;
+            const sY = slot.y * scale;
+            const sW = slot.width * scale;
+            const sH = slot.height * scale;
+            drawImageCover(ctx, shots[index], sX, sY, sW, sH);
+          }
+        });
+
+        ctx.drawImage(frameImg, 0, 0, stripCanvas.width, stripCanvas.height);
+
+        const link = document.createElement('a');
+        link.download = `poseyyy-${selectedFrameKey}-${Date.now()}.png`;
+        link.href = stripCanvas.toDataURL('image/png');
+        link.click();
+      };
+
+      frameImg.src = `${selectedFrame.frameImg}?t=${Date.now()}`;
+    });
+  }
 
   function drawImageCover(ctx, img, x, y, targetW, targetH) {
     const imgRatio = img.width / img.height;

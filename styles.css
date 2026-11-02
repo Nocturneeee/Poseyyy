@@ -76,8 +76,8 @@ header.nav nav a:hover{color:var(--sky-600)}
 .shot-count b{color:var(--sky-400)}
 .studio-content{display:grid;grid-template-columns:1fr 340px;gap:36px;align-items:stretch}
 .camera-wrap{background:#0b1329;border-radius:var(--radius-md);border:1px solid rgba(255,255,255,0.1);overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;min-height:480px}
-#video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
-#video.unmirrored{transform:scaleX(1)}
+#camera-video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
+#preview-canvas{width:100%;height:100%;object-fit:contain;display:none;margin:0 auto;background:#0b1329}
 .camera-placeholder{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--slate-400);text-align:center;padding:24px}
 .camera-placeholder span{font-size:36px;color:var(--sky-400);margin-bottom:4px}
 .camera-placeholder b{font-size:16px;color:var(--white)}
