@@ -85,7 +85,7 @@ header.nav nav a:hover{color:var(--sky-600)}
 .camera-overlay{position:absolute;top:20px;left:20px;right:20px;display:flex;justify-content:space-between;font-size:12px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;letter-spacing:0.08em;color:rgba(255,255,255,0.8);pointer-events:none}
 #activeFilterLabel{background:rgba(0,0,0,0.5);backdrop-filter:blur(4px);padding:4px 10px;border-radius:6px}
 #cameraStatus{background:rgba(14,165,233,0.3);color:var(--sky-200);padding:4px 10px;border-radius:6px}
-aside.controls{display:flex;flex-direction:column;justify-content:space-between;gap:20px}
+aside.controls{display:flex;flex-direction:column;justify-content:space-between;gap:12px}
 .thumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .thumbs.count-3{grid-template-columns:repeat(3,1fr)}
 .thumbs.count-4{grid-template-columns:repeat(4,1fr)}
@@ -98,7 +98,7 @@ aside.controls{display:flex;flex-direction:column;justify-content:space-between;
 .shutter{width:76px;height:76px;border-radius:50%;background:var(--white);border:4px solid rgba(255,255,255,0.4);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .1s}
 .shutter:hover{transform:scale(1.05)}
 .shutter span{width:60px;height:60px;background:var(--sky-500);border-radius:50%;display:block}
-.filter-dock{background:rgba(255,255,255,0.05);padding:14px;border-radius:var(--radius-sm);border:1px solid rgba(255,255,255,0.08)}
+.filter-dock{background:rgba(255,255,255,0.05);padding:10px 14px;border-radius:var(--radius-sm);border:1px solid rgba(255,255,255,0.08)}
 .filter-dock span{font-size:10px;letter-spacing:0.12em;font-weight:700;color:var(--slate-400);display:block;margin-bottom:10px}
 .filter-options{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
 .filter-choice{background:rgba(255,255,255,0.08);border:none;color:var(--white);padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}

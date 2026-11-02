@@ -197,7 +197,8 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', () => {
       timerChoices.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      selectedTimer = parseInt(btn.dataset.time, 10) || 3;
+      selectedTimer = parseInt(btn.dataset.time, 10);
+      if (isNaN(selectedTimer)) selectedTimer = 3;
     });
   });
 
@@ -235,7 +236,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (shutterBtn) {
     shutterBtn.addEventListener('click', () => {
       if (isCountingDown || shots.length >= currentLayout || viewMode !== 'camera') return;
-      startCountdownAndCapture();
+      
+      if (selectedTimer === 0) {
+        if (cameraStatus) cameraStatus.textContent = 'Say cheese! 📸';
+        captureFrame();
+      } else {
+        startCountdownAndCapture();
+      }
     });
   }
 
