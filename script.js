@@ -13,74 +13,146 @@ document.addEventListener('DOMContentLoaded', () => {
   const thumbs = document.querySelectorAll('.thumb');
   const filterChoices = document.querySelectorAll('.filter-choice');
   const filterTabs = document.querySelectorAll('.filter');
-  const templateGrid = document.getElementById('templateGrid');
+  const container = document.getElementById('templateCategoriesContainer');
 
   let stream = null;
   let currentFilter = 'none';
   let isMirrored = true;
   let currentLayout = 4;
   let shots = [];
-  let selectedTemplate = null;
 
-  // Templates configuration
-  const templates = [
-    {
-      id: 'tebs-edition',
-      name: 'TEBS Edition',
-      category: 'strip',
-      shots: 4,
-      dimensions: '600 × 1800 (4-Cut)',
-      imagePath: 'Photostrip/TEBS - EDITION.png',
-      badge: 'Trending ✦',
+  // 3. Verify FRAME_DATABASE Keys & Paths
+  const FRAME_DATABASE = {
+    'tebs-edition': {
+      displayName: 'TEBS Edition',
+      category: 'Collab & Brands',
+      previewImg: 'assets/frames/tebs-preview.png',
+      frameImg: 'assets/frames/tebs.png',
+      figmaWidth: 3079,
       slots: [
-        { x: 35, y: 110, width: 530, height: 375 },
-        { x: 35, y: 525, width: 530, height: 375 },
-        { x: 35, y: 940, width: 530, height: 375 },
-        { x: 35, y: 1355, width: 530, height: 375 }
+        { x: 82.25, y: 97.67,   width: 2914.69, height: 1716.95 },
+        { x: 82.25, y: 1932.85, width: 2914.69, height: 1716.95 },
+        { x: 82.25, y: 3768.03, width: 2914.69, height: 1716.95 },
+        { x: 82.25, y: 5603.21, width: 2914.69, height: 1716.95 }
+      ]
+    },
+    'halloween-red': {
+      displayName: 'Halloween Edition',
+      category: 'Seasonal / Special Events',
+      previewImg: 'assets/frames/halloween-preview.png',
+      frameImg: 'assets/frames/halloween-red.png',
+      figmaWidth: 3079,
+      slots: [
+        { x: 181, y: 483,  width: 2712, height: 1954 },
+        { x: 181, y: 2594, width: 2712, height: 1954 },
+        { x: 181, y: 4705, width: 2712, height: 1954 },
+        { x: 181, y: 6816, width: 2712, height: 1954 }
       ]
     }
-  ];
+  };
 
-  function initTemplates() {
-    templateGrid.innerHTML = '';
-    templates.forEach((tpl) => {
-      const card = document.createElement('article');
-      card.className = `template-card ${tpl.badge ? 'featured' : ''}`;
-      card.dataset.type = tpl.category;
-      card.dataset.id = tpl.id;
+  // 2. Fix localStorage & State Synchronization
+  let storedFrame = localStorage.getItem('selectedFrame');
+  if (!storedFrame || !FRAME_DATABASE[storedFrame]) {
+    storedFrame = 'halloween-red'; // default or fallback
+    localStorage.setItem('selectedFrame', storedFrame);
+  }
+  let selectedFrameKey = storedFrame;
+  console.log('Initial Loaded Selected Frame from localStorage:', selectedFrameKey);
 
-      card.innerHTML = `
-        <div class="template-preview" style="background: url('${tpl.imagePath}') center/contain no-repeat #0b1329;">
-          <div class="preview-badge">${tpl.badge || 'Frame'}</div>
-        </div>
-        <div class="template-info">
-          <div>
-            <h3>${tpl.name}</h3>
-            <p>${tpl.dimensions} · ${tpl.shots} photos</p>
-          </div>
-          <button class="select-layout" data-id="${tpl.id}">Use layout <span>→</span></button>
-        </div>
-      `;
+  // 2. UI Frame Picker & Sectioning with Cache-Busting
+  function initTemplates(filterCategory = 'all') {
+    if (!container) return;
+    container.innerHTML = '';
+    const cacheBuster = Date.now();
 
-      card.querySelector('.select-layout').addEventListener('click', () => {
-        selectTemplate(tpl);
-      });
-
-      templateGrid.appendChild(card);
+    const categories = {};
+    Object.keys(FRAME_DATABASE).forEach(key => {
+      const frame = FRAME_DATABASE[key];
+      if (filterCategory === 'all' || frame.category === filterCategory) {
+        if (!categories[frame.category]) {
+          categories[frame.category] = [];
+        }
+        categories[frame.category].push({ key, ...frame });
+      }
     });
 
-    if (templates.length > 0) {
-      selectTemplate(templates[0]);
+    Object.keys(categories).forEach(cat => {
+      const groupDiv = document.createElement('div');
+      groupDiv.className = 'category-group';
+
+      const title = document.createElement('h3');
+      title.className = 'category-title';
+      title.textContent = cat;
+      groupDiv.appendChild(title);
+
+      const grid = document.createElement('div');
+      grid.className = 'template-grid';
+
+      categories[cat].forEach(tpl => {
+        const card = document.createElement('article');
+        card.className = `template-card ${selectedFrameKey === tpl.key ? 'featured' : ''}`;
+        card.dataset.id = tpl.key;
+
+        const previewWithCache = `${tpl.previewImg}?t=${cacheBuster}`;
+
+        card.innerHTML = `
+          <div class="template-preview" style="background: url('${previewWithCache}') center/contain no-repeat #0b1329;">
+            <div class="preview-badge">${cat === 'Seasonal / Special Events' ? 'Halloween 🎃' : 'Trending ✦'}</div>
+          </div>
+          <div class="template-info">
+            <div>
+              <h3>${tpl.displayName}</h3>
+              <p>${tpl.slots.length} Photos · Studio Quality</p>
+            </div>
+            <button class="select-layout" data-frame-key="${tpl.key}">Use layout <span>→</span></button>
+          </div>
+        `;
+
+        card.querySelector('.select-layout').addEventListener('click', () => {
+          selectFrame(tpl.key);
+        });
+
+        grid.appendChild(card);
+      });
+
+      groupDiv.appendChild(grid);
+      container.appendChild(groupDiv);
+    });
+
+    if (FRAME_DATABASE[selectedFrameKey]) {
+      selectFrame(selectedFrameKey, false);
     }
   }
 
-  function selectTemplate(tpl) {
-    selectedTemplate = tpl;
-    currentLayout = tpl.shots;
+  function selectFrame(key, scrollToStudio = true) {
+    if (!FRAME_DATABASE[key]) return;
+    selectedFrameKey = key;
+    // 2. Explicitly save to localStorage
+    localStorage.setItem('selectedFrame', key);
+
+    const selectedFrame = FRAME_DATABASE[key];
+    // 1. Console debugging
+    console.log('Selected Frame Key:', selectedFrameKey);
+    console.log('Loading Frame Image Path:', selectedFrame.frameImg);
+
+    currentLayout = selectedFrame.slots.length;
     totalShotsEl.textContent = currentLayout;
     resetSession();
     updateThumbsContainer();
-    document.getElementById('studio').scrollIntoView({ behavior: 'smooth' });
+
+    // Highlight active card
+    document.querySelectorAll('.template-card').forEach(card => {
+      if (card.dataset.id === key) {
+        card.classList.add('featured');
+      } else {
+        card.classList.remove('featured');
+      }
+    });
+
+    if (scrollToStudio) {
+      document.getElementById('studio').scrollIntoView({ behavior: 'smooth' });
+    }
   }
 
   function updateThumbsContainer() {
@@ -94,6 +166,16 @@ document.addEventListener('DOMContentLoaded', () => {
       thumbsWrap.appendChild(t);
     }
   }
+
+  // Filter tabs behavior
+  filterTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      filterTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const cat = tab.dataset.filter;
+      initTemplates(cat);
+    });
+  });
 
   // Initialize camera
   async function initCamera() {
@@ -139,23 +221,6 @@ document.addEventListener('DOMContentLoaded', () => {
       default: return 'none';
     }
   }
-
-  filterTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      filterTabs.forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      const filter = tab.dataset.filter;
-      document.querySelectorAll('.template-card').forEach(card => {
-        const id = card.dataset.id;
-        const tpl = templates.find(t => t.id === id);
-        if (filter === 'all' || tpl.category === filter) {
-          card.style.display = 'flex';
-        } else {
-          card.style.display = 'none';
-        }
-      });
-    });
-  });
 
   // Shutter action
   shutterBtn.addEventListener('click', () => {
@@ -258,61 +323,67 @@ document.addEventListener('DOMContentLoaded', () => {
     updateThumbs();
   }
 
-  // Download photo strip with transparent frame on top
+  // 3. Canvas Render Logic with Cache-Busting and Auto-Scale
   downloadBtn.addEventListener('click', () => {
-    if (shots.length === 0 || !selectedTemplate) return;
+    if (shots.length === 0 || !FRAME_DATABASE[selectedFrameKey]) return;
+
+    const selectedFrame = FRAME_DATABASE[selectedFrameKey];
+    console.log('Downloading with Selected Frame Key:', selectedFrameKey);
+    console.log('Frame Image Path:', selectedFrame.frameImg);
 
     const frameImg = new Image();
     frameImg.crossOrigin = 'anonymous';
+
     frameImg.onload = () => {
       const stripCanvas = document.createElement('canvas');
-      const sCtx = stripCanvas.getContext('2d');
+      const ctx = stripCanvas.getContext('2d');
 
-      stripCanvas.width = frameImg.width;
-      stripCanvas.height = frameImg.height;
+      stripCanvas.width = frameImg.naturalWidth;
+      stripCanvas.height = frameImg.naturalHeight;
 
-      // 1. Draw photos first (behind transparent frame windows)
-      selectedTemplate.slots.forEach((slot, index) => {
+      ctx.clearRect(0, 0, stripCanvas.width, stripCanvas.height);
+
+      const scale = frameImg.naturalWidth / selectedFrame.figmaWidth;
+
+      selectedFrame.slots.forEach((slot, index) => {
         if (shots[index]) {
-          drawCover(sCtx, shots[index], slot.x, slot.y, slot.width, slot.height);
+          const sX = slot.x * scale;
+          const sY = slot.y * scale;
+          const sW = slot.width * scale;
+          const sH = slot.height * scale;
+          drawImageCover(ctx, shots[index], sX, sY, sW, sH);
         }
       });
 
-      // 2. Draw transparent frame on top
-      sCtx.drawImage(frameImg, 0, 0, stripCanvas.width, stripCanvas.height);
+      ctx.drawImage(frameImg, 0, 0, stripCanvas.width, stripCanvas.height);
 
-      // 3. Trigger download
       const link = document.createElement('a');
-      link.download = `poseyyy-${selectedTemplate.id}-${Date.now()}.png`;
+      link.download = `poseyyy-${selectedFrameKey}-${Date.now()}.png`;
       link.href = stripCanvas.toDataURL('image/png');
       link.click();
     };
-    frameImg.src = selectedTemplate.imagePath;
+
+    // 1. Cache-busting on frame download load
+    frameImg.src = `${selectedFrame.frameImg}?t=${Date.now()}`;
   });
 
-  function drawCover(ctx, img, x, y, w, h) {
+  function drawImageCover(ctx, img, x, y, targetW, targetH) {
     const imgRatio = img.width / img.height;
-    const slotRatio = w / h;
-    let renderW, renderH, offsetX, offsetY;
+    const targetRatio = targetW / targetH;
+    let sx, sy, sW, sH;
 
-    if (imgRatio > slotRatio) {
-      renderH = h;
-      renderW = h * imgRatio;
-      offsetX = x - (renderW - w) / 2;
-      offsetY = y;
+    if (imgRatio > targetRatio) {
+      sH = img.height;
+      sW = img.height * targetRatio;
+      sx = (img.width - sW) / 2;
+      sy = 0;
     } else {
-      renderW = w;
-      renderH = w / imgRatio;
-      offsetX = x;
-      offsetY = y - (renderH - h) / 2;
+      sW = img.width;
+      sH = img.width / targetRatio;
+      sx = 0;
+      sy = (img.height - sH) / 2;
     }
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(x, y, w, h);
-    ctx.clip();
-    ctx.drawImage(img, offsetX, offsetY, renderW, renderH);
-    ctx.restore();
+    ctx.drawImage(img, sx, sy, sW, sH, x, y, targetW, targetH);
   }
 
   initTemplates();

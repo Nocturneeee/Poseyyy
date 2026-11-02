@@ -54,6 +54,9 @@ header.nav nav a:hover{color:var(--sky-600)}
 .filters{display:flex;gap:12px;margin-bottom:32px}
 .filter{background:var(--white);border:1px solid var(--slate-200);padding:10px 20px;border-radius:9999px;font-weight:600;font-size:14px;color:var(--slate-600);cursor:pointer;transition:all .2s}
 .filter.active,.filter:hover{background:var(--sky-600);color:var(--white);border-color:var(--sky-600)}
+.layouts{display:flex;flex-direction:column;gap:48px}
+.category-group{display:flex;flex-direction:column;gap:20px}
+.category-title{font-size:22px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;color:var(--slate-900);border-bottom:2px solid var(--slate-200);padding-bottom:10px}
 .template-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
 .template-card{background:var(--white);border-radius:var(--radius-md);border:1px solid var(--slate-200);overflow:hidden;box-shadow:var(--shadow-soft);display:flex;flex-direction:column;transition:transform .2s}
 .template-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-hover)}
