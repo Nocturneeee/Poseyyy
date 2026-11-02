@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const placeholder = document.getElementById('cameraPlaceholder');
   const shutterBtn = document.getElementById('shutter-btn');
   const mirrorBtn = document.getElementById('mirrorBtn');
-  const uploadInput = document.getElementById('uploadInput');
+  const uploadInput = document.getElementById('local-file-input');
   const shotCountEl = document.getElementById('shotCount');
   const totalShotsEl = document.getElementById('totalShots');
   const downloadBtn = document.getElementById('downloadBtn');
@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentFilter = 'none';
   let isMirrored = true;
   let currentLayout = 4;
-  let shots = [];
+  let capturedPhotos = []; // Using capturedPhotos as requested
   let selectedTimer = 3;
   let isCountingDown = false;
   let viewMode = 'camera'; // 'camera' | 'preview'
@@ -135,7 +135,6 @@ document.addEventListener('DOMContentLoaded', () => {
     currentLayout = selectedFrame.slots.length;
     if (totalShotsEl) totalShotsEl.textContent = currentLayout;
     resetSession();
-    updateThumbsContainer();
 
     document.querySelectorAll('.template-card').forEach(card => {
       if (card.dataset.id === key) {
@@ -151,16 +150,44 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function updateThumbsContainer() {
-    const thumbsWrap = document.getElementById('thumbs');
-    if (!thumbsWrap) return;
-    thumbsWrap.className = `thumbs count-${currentLayout}`;
-    thumbsWrap.innerHTML = '';
-    for (let i = 0; i < currentLayout; i++) {
-      const t = document.createElement('div');
-      t.className = 'thumb empty';
-      t.textContent = `0${i + 1}`;
-      thumbsWrap.appendChild(t);
+  // 1. Centralized updateThumbs() Function with Null Guards
+  function updateThumbs() {
+    const photos = capturedPhotos || [];
+    
+    const shotCounter = document.querySelector('#shotCount') || document.querySelector('.shot-indicator');
+    if (shotCounter) {
+      shotCounter.textContent = `${photos.length}`;
+    }
+
+    const shotCountDisplay = document.querySelector('.shot-count');
+    if (shotCountDisplay) {
+      shotCountDisplay.innerHTML = `SHOT <b id="shotCount">${photos.length}</b> / <span id="totalShots">${currentLayout}</span>`;
+    }
+
+    const thumbSlots = document.querySelectorAll('.thumb, .thumb-box, .thumbnail-slot, [data-slot]');
+    thumbSlots.forEach((slot, index) => {
+      if (photos[index]) {
+        slot.innerHTML = `<img src="${photos[index]}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;">`;
+        slot.classList.remove('empty');
+      } else {
+        const slotNum = String(index + 1).padStart(2, '0');
+        slot.innerHTML = `<span style="opacity:0.4;">${slotNum}</span>`;
+        slot.classList.add('empty');
+      }
+    });
+
+    if (photos.length >= currentLayout) {
+      viewMode = 'preview';
+      if (videoElem) videoElem.style.display = 'none';
+      if (canvasElem) canvasElem.style.display = 'block';
+      if (placeholder) placeholder.style.display = 'none';
+      if (controlRow) controlRow.style.display = 'none';
+      if (downloadBtn) downloadBtn.disabled = false;
+      if (cameraStatus) cameraStatus.textContent = 'All photos captured! Preview below.';
+      
+      if (typeof renderFinalPreview === 'function') {
+        renderFinalPreview();
+      }
     }
   }
 
@@ -235,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (shutterBtn) {
     shutterBtn.addEventListener('click', () => {
-      if (isCountingDown || shots.length >= currentLayout || viewMode !== 'camera') return;
+      if (isCountingDown || capturedPhotos.length >= currentLayout || viewMode !== 'camera') return;
       
       if (selectedTimer === 0) {
         if (cameraStatus) cameraStatus.textContent = 'Say cheese! 📸';
@@ -273,46 +300,48 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1000);
   }
 
-  if (uploadInput) {
-    uploadInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
+  // 2. Connect Local File Upload Reader to updateThumbs()
+  function handleFileUpload(files) {
+    const remaining = currentLayout - capturedPhotos.length;
+    const filesToProcess = Array.from(files).slice(0, remaining);
+
+    filesToProcess.forEach(file => {
       const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          addShot(img);
-        };
-        img.src = event.target.result;
+      reader.onload = (e) => {
+        capturedPhotos.push(e.target.result);
+        updateThumbs();
       };
       reader.readAsDataURL(file);
     });
   }
 
-  function captureFrame() {
-    const videoElem = document.getElementById('camera-video');
-    const shotCountElem = document.getElementById('shotCount');
+  if (uploadInput) {
+    uploadInput.addEventListener('change', (e) => {
+      handleFileUpload(e.target.files);
+      uploadInput.value = '';
+    });
+  }
 
-    // 1. Off-screen canvas snapshot
+  function captureFrame() {
+    const w = (videoElem && videoElem.videoWidth) || 1280;
+    const h = (videoElem && videoElem.videoHeight) || 720;
     const hiddenCanvas = document.createElement('canvas');
-    hiddenCanvas.width = (videoElem && videoElem.videoWidth) || 1280;
-    hiddenCanvas.height = (videoElem && videoElem.videoHeight) || 720;
+    hiddenCanvas.width = w;
+    hiddenCanvas.height = h;
     const ctx = hiddenCanvas.getContext('2d');
     
     ctx.filter = getFilterCSS(currentFilter);
     if (isMirrored && videoElem) {
-      ctx.translate(hiddenCanvas.width, 0);
+      ctx.translate(w, 0);
       ctx.scale(-1, 1);
     }
-
     if (videoElem && videoElem.readyState === videoElem.HAVE_ENOUGH_DATA) {
-      ctx.drawImage(videoElem, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
+      ctx.drawImage(videoElem, 0, 0, w, h);
     } else {
       ctx.fillStyle = '#0284c7';
-      ctx.fillRect(0, 0, hiddenCanvas.width, hiddenCanvas.height);
+      ctx.fillRect(0, 0, w, h);
     }
     
-    // Flash effect simulation
     const flashDiv = document.createElement('div');
     flashDiv.style.position = 'absolute';
     flashDiv.style.top = '0';
@@ -328,88 +357,20 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => { flashDiv.remove(); }, 350);
 
     const photoDataUrl = hiddenCanvas.toDataURL('image/png');
-    const img = new Image();
-    img.onload = () => {
-      // 2. Update Array & UI Safely
-      shots.push(img);
-      if (shotCountElem) {
-        shotCountElem.textContent = `${shots.length}`;
-      }
-      
-      const shotCounterElem = document.getElementById('shotCount');
-      if (shotCounterElem) {
-        // Updating parent text or span as requested
-      }
-      
-      const shotCountDisplay = document.querySelector('.shot-count');
-      if (shotCountDisplay) {
-        shotCountDisplay.innerHTML = `SHOT <b id="shotCount">${shots.length}</b> / <span id="totalShots">${currentLayout}</span>`;
-      }
-
-      const thumbSlots = document.querySelectorAll('.thumb');
-      const currentIndex = shots.length - 1;
-      if (thumbSlots[currentIndex]) {
-        thumbSlots[currentIndex].innerHTML = `<img src="${photoDataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;">`;
-        thumbSlots[currentIndex].classList.remove('empty');
-      }
-
-      // 3. Auto-Trigger Preview on Shot 4 (or currentLayout)
-      if (shots.length >= currentLayout) {
-        viewMode = 'preview';
-        if (videoElem) videoElem.style.display = 'none';
-        const canvasElem = document.getElementById('preview-canvas');
-        if (canvasElem) canvasElem.style.display = 'block';
-        const placeholder = document.getElementById('cameraPlaceholder');
-        if (placeholder) placeholder.style.display = 'none';
-        const controlRow = document.getElementById('controlRow');
-        if (controlRow) controlRow.style.display = 'none';
-        const downloadBtn = document.getElementById('downloadBtn');
-        if (downloadBtn) downloadBtn.disabled = false;
-        if (cameraStatus) cameraStatus.textContent = 'All photos captured! Preview below.';
-        
-        renderFinalPreview();
-      } else {
-        if (cameraStatus) cameraStatus.textContent = `Camera ready (${shots.length}/${currentLayout})`;
-      }
-    };
-    img.src = photoDataUrl;
-  }
-
-  function addShot(imgObj) {
-    if (shots.length >= currentLayout) return;
-    shots.push(imgObj);
+    capturedPhotos.push(photoDataUrl);
     updateThumbs();
-    if (shotCountEl) shotCountEl.textContent = shots.length;
 
-    if (shots.length >= currentLayout) {
-      // 1. Switch to preview mode with null guards
-      viewMode = 'preview';
-      const videoElem = document.getElementById('camera-video');
-      const canvasElem = document.getElementById('preview-canvas');
-      const placeholder = document.getElementById('cameraPlaceholder');
-      const controlRow = document.getElementById('controlRow');
-      const downloadBtn = document.getElementById('downloadBtn');
-
-      if (videoElem) videoElem.style.display = 'none';
-      if (canvasElem) canvasElem.style.display = 'block';
-      if (placeholder) placeholder.style.display = 'none';
-      if (controlRow) controlRow.style.display = 'none';
-      if (downloadBtn) downloadBtn.disabled = false;
-      if (cameraStatus) cameraStatus.textContent = 'All photos captured! Preview below.';
-      
-      renderFinalPreview();
-    } else {
-      if (cameraStatus) cameraStatus.textContent = `Camera ready (${shots.length}/${currentLayout})`;
+    if (cameraStatus && capturedPhotos.length < currentLayout) {
+      cameraStatus.textContent = `Camera ready (${capturedPhotos.length}/${currentLayout})`;
     }
   }
 
   function resetSession() {
-    shots = [];
+    capturedPhotos = [];
     if (shotCountEl) shotCountEl.textContent = '0';
     if (downloadBtn) downloadBtn.disabled = true;
     if (cameraStatus) cameraStatus.textContent = stream ? 'Camera live' : 'Camera off';
     
-    // 1. Reset Viewport & State with null guards
     viewMode = 'camera';
     if (videoElem) videoElem.style.display = 'block';
     if (canvasElem) canvasElem.style.display = 'none';
@@ -430,10 +391,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // 3. Async Frame Preloading & Render Execution (renderFinalPreview)
   function renderFinalPreview() {
-    const canvasElem = document.getElementById('preview-canvas');
-    if (shots.length === 0 || !FRAME_DATABASE[selectedFrameKey] || !canvasElem) return;
+    if (capturedPhotos.length === 0 || !FRAME_DATABASE[selectedFrameKey] || !canvasElem) return;
 
     const selectedFrame = FRAME_DATABASE[selectedFrameKey];
     const frameImg = new Image();
@@ -449,17 +408,24 @@ document.addEventListener('DOMContentLoaded', () => {
       const scale = frameImg.naturalWidth / selectedFrame.figmaWidth;
 
       selectedFrame.slots.forEach((slot, index) => {
-        if (shots[index]) {
+        if (capturedPhotos[index]) {
           const sX = slot.x * scale;
           const sY = slot.y * scale;
           const sW = slot.width * scale;
           const sH = slot.height * scale;
-          drawImageCover(ctx, shots[index], sX, sY, sW, sH);
+          
+          const imgObj = new Image();
+          imgObj.onload = () => {
+            drawImageCover(ctx, imgObj, sX, sY, sW, sH);
+            // Re-draw frame on top once all images are loaded
+            ctx.drawImage(frameImg, 0, 0, canvasElem.width, canvasElem.height);
+          };
+          imgObj.src = capturedPhotos[index];
         }
       });
 
+      // Initial draw frame in case images take a moment
       ctx.drawImage(frameImg, 0, 0, canvasElem.width, canvasElem.height);
-      console.log('Final Strip Preview Rendered Successfully on Canvas.');
     };
 
     frameImg.src = `${selectedFrame.frameImg}?t=${Date.now()}`;
@@ -467,7 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (downloadBtn) {
     downloadBtn.addEventListener('click', () => {
-      if (shots.length === 0 || !FRAME_DATABASE[selectedFrameKey]) return;
+      if (capturedPhotos.length === 0 || !FRAME_DATABASE[selectedFrameKey]) return;
 
       const selectedFrame = FRAME_DATABASE[selectedFrameKey];
       const frameImg = new Image();
@@ -485,21 +451,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const scale = frameImg.naturalWidth / selectedFrame.figmaWidth;
 
         selectedFrame.slots.forEach((slot, index) => {
-          if (shots[index]) {
+          if (capturedPhotos[index]) {
             const sX = slot.x * scale;
             const sY = slot.y * scale;
             const sW = slot.width * scale;
             const sH = slot.height * scale;
-            drawImageCover(ctx, shots[index], sX, sY, sW, sH);
+
+            const imgObj = new Image();
+            imgObj.onload = () => {
+              drawImageCover(ctx, imgObj, sX, sY, sW, sH);
+              ctx.drawImage(frameImg, 0, 0, stripCanvas.width, stripCanvas.height);
+              
+              if (index === capturedPhotos.length - 1) {
+                const link = document.createElement('a');
+                link.download = `poseyyy-${selectedFrameKey}-${Date.now()}.png`;
+                link.href = stripCanvas.toDataURL('image/png');
+                link.click();
+              }
+            };
+            imgObj.src = capturedPhotos[index];
           }
         });
 
         ctx.drawImage(frameImg, 0, 0, stripCanvas.width, stripCanvas.height);
-
-        const link = document.createElement('a');
-        link.download = `poseyyy-${selectedFrameKey}-${Date.now()}.png`;
-        link.href = stripCanvas.toDataURL('image/png');
-        link.click();
       };
 
       frameImg.src = `${selectedFrame.frameImg}?t=${Date.now()}`;
