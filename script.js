@@ -431,53 +431,204 @@ document.addEventListener('DOMContentLoaded', () => {
     frameImg.src = `${selectedFrame.frameImg}?t=${Date.now()}`;
   }
 
-  if (downloadBtn) {
-    downloadBtn.addEventListener('click', () => {
-      if (capturedPhotos.length === 0 || !FRAME_DATABASE[selectedFrameKey]) return;
+  async function handleDownload() {
+    if (capturedPhotos.length === 0 || !FRAME_DATABASE[selectedFrameKey]) return;
+    
+    if (downloadBtn) {
+      downloadBtn.disabled = true;
+      downloadBtn.textContent = 'Processing... ⏳';
+    }
 
-      const selectedFrame = FRAME_DATABASE[selectedFrameKey];
-      const frameImg = new Image();
-      frameImg.crossOrigin = 'anonymous';
+    // Give the UI thread time to render the button text before heavy processing
+    await new Promise(resolve => setTimeout(resolve, 50));
 
-      frameImg.onload = () => {
-        const stripCanvas = document.createElement('canvas');
-        const ctx = stripCanvas.getContext('2d');
+    const selectedFrame = FRAME_DATABASE[selectedFrameKey];
+    const frameImg = new Image();
+    frameImg.crossOrigin = 'anonymous';
 
-        stripCanvas.width = frameImg.naturalWidth;
-        stripCanvas.height = frameImg.naturalHeight;
+    frameImg.onload = () => {
+      const stripCanvas = document.createElement('canvas');
+      const ctx = stripCanvas.getContext('2d');
 
-        ctx.clearRect(0, 0, stripCanvas.width, stripCanvas.height);
+      stripCanvas.width = frameImg.naturalWidth;
+      stripCanvas.height = frameImg.naturalHeight;
 
-        const scale = frameImg.naturalWidth / selectedFrame.figmaWidth;
+      ctx.clearRect(0, 0, stripCanvas.width, stripCanvas.height);
 
-        selectedFrame.slots.forEach((slot, index) => {
-          if (capturedPhotos[index]) {
-            const sX = slot.x * scale;
-            const sY = slot.y * scale;
-            const sW = slot.width * scale;
-            const sH = slot.height * scale;
+      const scale = frameImg.naturalWidth / selectedFrame.figmaWidth;
+      let loadedCount = 0;
+      const totalToLoad = capturedPhotos.length;
 
-            const imgObj = new Image();
-            imgObj.onload = () => {
-              drawImageCover(ctx, imgObj, sX, sY, sW, sH);
-              ctx.drawImage(frameImg, 0, 0, stripCanvas.width, stripCanvas.height);
-              
-              if (index === capturedPhotos.length - 1) {
-                const link = document.createElement('a');
-                link.download = `poseyyy-${selectedFrameKey}-${Date.now()}.png`;
-                link.href = stripCanvas.toDataURL('image/png');
-                link.click();
-              }
-            };
-            imgObj.src = capturedPhotos[index];
-          }
-        });
-
+      const finishBlobProcess = () => {
+        // Draw frame on top
         ctx.drawImage(frameImg, 0, 0, stripCanvas.width, stripCanvas.height);
+
+        // 1. Create a downscaled copy for mobile memory safety (max 1500px)
+        const exportCanvas = getMobileOptimizedCanvas(stripCanvas, 1500);
+
+        exportCanvas.toBlob(async (blob) => {
+          if (!blob) {
+            alert('Export failed. Please try again.');
+            resetDownloadBtn(downloadBtn);
+            return;
+          }
+
+          const fileName = `poseyyy-${selectedFrameKey}-${Date.now()}.png`;
+          const file = new File([blob], fileName, { type: 'image/png' });
+
+          // 2. Try Native Web Share API (Best for iOS)
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({
+                files: [file],
+                title: 'My Photo Strip',
+                text: 'Check out my photo strip!'
+              });
+              resetDownloadBtn(downloadBtn);
+              return;
+            } catch (err) {
+              // User cancelled share or share failed
+              if (err.name === 'AbortError') {
+                resetDownloadBtn(downloadBtn);
+                return;
+              }
+            }
+          }
+
+          // 3. iOS Fallback: Open Image Modal for Manual "Tap & Hold -> Save to Photos"
+          const imageUrl = URL.createObjectURL(blob);
+          
+          // Detect iOS / Mobile
+          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+          if (isIOS) {
+            showIOSDownloadModal(imageUrl);
+          } else {
+            // Standard desktop anchor download trigger
+            const link = document.createElement('a');
+            link.href = imageUrl;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(imageUrl), 10000);
+          }
+
+          resetDownloadBtn(downloadBtn);
+        }, 'image/png', 0.90);
       };
 
-      frameImg.src = `${selectedFrame.frameImg}?t=${Date.now()}`;
+      selectedFrame.slots.forEach((slot, index) => {
+        if (capturedPhotos[index]) {
+          const sX = slot.x * scale;
+          const sY = slot.y * scale;
+          const sW = slot.width * scale;
+          const sH = slot.height * scale;
+
+          const imgObj = new Image();
+          imgObj.onload = () => {
+            drawImageCover(ctx, imgObj, sX, sY, sW, sH);
+            loadedCount++;
+            if (loadedCount >= totalToLoad) {
+              finishBlobProcess();
+            }
+          };
+          imgObj.onerror = () => {
+            loadedCount++;
+            if (loadedCount >= totalToLoad) {
+              finishBlobProcess();
+            }
+          };
+          imgObj.src = capturedPhotos[index];
+        } else {
+          loadedCount++;
+          if (loadedCount >= totalToLoad) {
+            finishBlobProcess();
+          }
+        }
+      });
+    };
+
+    frameImg.onerror = () => {
+      alert('Failed to load frame for download.');
+      resetDownloadBtn(downloadBtn);
+    };
+
+    frameImg.src = `${selectedFrame.frameImg}?t=${Date.now()}`;
+  }
+
+  function getMobileOptimizedCanvas(sourceCanvas, maxWidth) {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+    if (!isMobile && sourceCanvas.width <= maxWidth) {
+      return sourceCanvas;
+    }
+
+    const targetWidth = Math.min(sourceCanvas.width, maxWidth);
+    const targetHeight = Math.round((sourceCanvas.height * targetWidth) / sourceCanvas.width);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(sourceCanvas, 0, 0, targetWidth, targetHeight);
+    return canvas;
+  }
+
+  function showIOSDownloadModal(imgSrc) {
+    const existingModal = document.getElementById('iosDownloadModal');
+    if (existingModal) existingModal.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'iosDownloadModal';
+    modal.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(15, 23, 42, 0.9); z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 24px; box-sizing: border-box; backdrop-filter: blur(8px);
+    `;
+
+    modal.innerHTML = `
+      <div style="background: #1e293b; border-radius: 20px; padding: 24px; max-width: 360px; width: 100%; text-align: center; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+        <h3 style="color: #ffffff; font-size: 18px; margin-bottom: 8px; font-family: 'Plus Jakarta Sans', sans-serif;">Your Photo Strip is Ready! ✨</h3>
+        <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px; line-height: 1.4;">Tekan dan tahan gambar di bawah lalu pilih <b>'Simpan ke Foto'</b> (Add to Photos)</p>
+        <div style="background: #0b1329; border-radius: 12px; overflow: hidden; max-height: 380px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1);">
+          <img src="${imgSrc}" style="max-width: 100%; max-height: 360px; object-fit: contain; border-radius: 8px;" />
+        </div>
+        <button id="closeIosModal" style="background: #0ea5e9; color: white; border: none; padding: 12px 24px; border-radius: 9999px; font-weight: 600; font-size: 14px; width: 100%; cursor: pointer;">Close & Continue</button>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const closeBtn = modal.querySelector('#closeIosModal');
+    closeBtn.addEventListener('click', () => {
+      modal.remove();
+      setTimeout(() => URL.revokeObjectURL(imgSrc), 10000);
     });
+  }
+
+  function triggerFallbackDownload(blob, fileName) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Clean up memory URL after 10 seconds
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  }
+
+  function resetDownloadBtn(btn) {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Download your strip ↓';
+    }
+  }
+
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', handleDownload);
   }
 
   function drawImageCover(ctx, img, x, y, targetW, targetH) {
