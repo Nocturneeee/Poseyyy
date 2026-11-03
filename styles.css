@@ -112,3 +112,97 @@ aside.controls{display:flex;flex-direction:column;justify-content:space-between;
 footer{border-top:1px solid var(--slate-200);padding:40px 5%;display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--slate-600);background:var(--white)}
 .filter.active{background:var(--sky-600);color:var(--white)}
 @media(max-width:960px){.hero{grid-template-columns:1fr;text-align:center;padding-top:40px}.hero-actions{justify-content:center}.trust{justify-content:center}.hero-art{display:none}.step-grid,.template-grid{grid-template-columns:1fr}.section-heading{flex-direction:column;align-items:flex-start;gap:12px}.studio-content{grid-template-columns:1fr}header.nav nav{display:none}.menu-button{display:block}}
+
+@media(max-width:768px){
+  body, html {
+    overflow-x: hidden !important;
+  }
+  .section.studio {
+    padding: 24px 12px !important;
+  }
+  .studio-shell {
+    padding: 16px !important;
+    border-radius: var(--radius-sm) !important;
+  }
+  .studio-top {
+    margin-bottom: 16px !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+  .studio-top h2 {
+    font-size: 24px !important;
+  }
+  .studio-content {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    padding: 0 !important;
+  }
+  .camera-wrap {
+    width: 100% !important;
+    max-height: 50vh !important;
+    aspect-ratio: 3/4 !important;
+    min-height: unset !important;
+  }
+  #camera-video, #preview-canvas {
+    object-fit: contain !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+  aside.controls {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+  .thumbs {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 8px !important;
+    justify-content: center !important;
+    width: 100% !important;
+  }
+  .thumb {
+    width: 50px !important;
+    height: 50px !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    max-height: 50px !important;
+  }
+  .control-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 20px !important;
+    padding: 4px 0 !important;
+  }
+  .shutter {
+    width: 60px !important;
+    height: 60px !important;
+  }
+  .shutter span {
+    width: 48px !important;
+    height: 48px !important;
+  }
+  .round-control {
+    width: 44px !important;
+    height: 44px !important;
+  }
+  .filter-dock {
+    padding: 8px 10px !important;
+  }
+  .filter-options {
+    display: flex !important;
+    overflow-x: auto !important;
+    gap: 8px !important;
+    padding-bottom: 4px !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .filter-choice {
+    white-space: nowrap !important;
+    padding: 8px 14px !important;
+    font-size: 13px !important;
+  }
+  button, .button, .round-control, .shutter, .filter-choice, .filter {
+    touch-action: manipulation !important;
+  }
+}
