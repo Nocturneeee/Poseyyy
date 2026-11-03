@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let isMirrored = true; // Default webcam mirror state
   let selectedTimer = 3; // Default timer (0, 3, 10, or 15)
   let currentFilter = 'none';
-  let currentEffect = 'none';
+  let currentEffect = 'none'; // 'none' | 'hearts' | 'sparkles' | 'vintage-light'
   let capturedPhotos = [];
   let effectChoices = [];
   let faceLandmarker = null;
@@ -29,6 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let isCapturing = false;
   let lastVideoTime = -1;
   let detectedFaceForehead = null; // { x, y }
+  let maxParticles = 35; // Global max particle limit
+  let particlesArray = [];
+  let particles = [];
 
   async function initMediaPipe() {
     try {
@@ -65,9 +68,78 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   const effectCtx = effectCanvas.getContext('2d');
 
-  // Particle systems state
-  let particles = [];
-  const maxParticles = 25;
+  function drawHeart(ctx, x, y, size, alpha, color) {
+    if (!ctx) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color || '#ff3366';
+    ctx.shadowColor = '#ff3366';
+    ctx.shadowBlur = 8;
+
+    const width = size;
+    const height = size;
+    const topCurveHeight = height * 0.3;
+
+    ctx.moveTo(x, y + topCurveHeight);
+    // Top left curve
+    ctx.bezierCurveTo(
+      x, y, 
+      x - width / 2, y, 
+      x - width / 2, y + topCurveHeight
+    );
+    // Bottom left curve
+    ctx.bezierCurveTo(
+      x - width / 2, y + (height + topCurveHeight) / 2, 
+      x, y + (height + topCurveHeight) / 2, 
+      x, y + height
+    );
+    // Bottom right curve
+    ctx.bezierCurveTo(
+      x, y + (height + topCurveHeight) / 2, 
+      x + width / 2, y + (height + topCurveHeight) / 2, 
+      x + width / 2, y + topCurveHeight
+    );
+    // Top right curve
+    ctx.bezierCurveTo(
+      x + width / 2, y, 
+      x, y, 
+      x, y + topCurveHeight
+    );
+
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawSparkle(ctx, x, y, size, alpha, color) {
+    if (!ctx) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = color || '#ffd700';
+    ctx.shadowColor = '#fff';
+    ctx.shadowBlur = 10;
+
+    // Draw 4-point star sparkle
+    const spikes = 4;
+    const outerRadius = size;
+    const innerRadius = size / 3;
+    let rot = (Math.PI / 2) * 3;
+    let step = Math.PI / spikes;
+
+    ctx.moveTo(x, y - outerRadius);
+    for (let i = 0; i < spikes; i++) {
+      ctx.lineTo(x + Math.cos(rot) * outerRadius, y + Math.sin(rot) * outerRadius);
+      rot += step;
+      ctx.lineTo(x + Math.cos(rot) * innerRadius, y + Math.sin(rot) * innerRadius);
+      rot += step;
+    }
+    ctx.lineTo(x, y - outerRadius);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
 
   function initParticles(type) {
     particles = [];
@@ -77,86 +149,123 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function createParticle(type, randomY = false) {
-    return {
-      x: Math.random() * (effectCanvas.width || 640),
-      y: randomY ? Math.random() * (effectCanvas.height || 480) : (effectCanvas.height || 480) + 20,
-      size: type === 'hearts' ? Math.random() * 16 + 10 : (type === 'sparkles' ? Math.random() * 8 + 4 : Math.random() * 30 + 15),
-      speedY: type === 'hearts' ? -(Math.random() * 1.5 + 0.8) : (type === 'sparkles' ? -(Math.random() * 2 + 1) : -(Math.random() * 0.8 + 0.4)),
-      speedX: (Math.random() - 0.5) * 1.2,
-      opacity: Math.random() * 0.7 + 0.3,
-      pulse: Math.random() * Math.PI,
-      pulseSpeed: Math.random() * 0.05 + 0.02,
-      rotation: Math.random() * Math.PI * 2,
-      rotSpeed: (Math.random() - 0.5) * 0.03
-    };
-  }
-
-  function drawHeart(ctx, x, y, size, alpha) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(size / 24, size / 24);
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = '#ff3366';
-    ctx.shadowColor = '#ff6699';
-    ctx.shadowBlur = 10;
-    ctx.beginPath();
-    ctx.moveTo(0, 7);
-    ctx.bezierCurveTo(0, 3, -5, 0, -10, 0);
-    ctx.bezierCurveTo(-16, 0, -20, 5, -20, 11);
-    ctx.bezierCurveTo(-20, 18, -12, 24, 0, 31);
-    ctx.bezierCurveTo(12, 24, 20, 18, 20, 11);
-    ctx.bezierCurveTo(20, 5, 16, 0, 10, 0);
-    ctx.bezierCurveTo(5, 0, 0, 3, 0, 7);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-  }
-
-  function drawSparkle(ctx, x, y, size, alpha, rotation) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(rotation);
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = '#ffffff';
-    ctx.shadowColor = '#0ea5e9';
-    ctx.shadowBlur = 12;
-    ctx.beginPath();
-    for (let i = 0; i < 4; i++) {
-      ctx.lineTo(0, -size);
-      ctx.quadraticCurveTo(0, 0, size, 0);
-      ctx.quadraticCurveTo(0, 0, 0, size);
-      ctx.quadraticCurveTo(0, 0, -size, 0);
-      ctx.rotate(Math.PI / 2);
+    if (type === 'hearts') {
+      return {
+        x: (Math.random() - 0.5) * 160,
+        y: randomY ? Math.random() * -120 : 0,
+        size: Math.random() * 16 + 10,
+        speedY: -(Math.random() * 1.2 + 0.6),
+        speedX: (Math.random() - 0.5) * 0.8,
+        opacity: Math.random() * 0.6 + 0.4,
+        life: 0,
+        maxLife: Math.random() * 80 + 60,
+        pulse: Math.random() * Math.PI,
+        pulseSpeed: Math.random() * 0.05 + 0.02,
+        rotation: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.03
+      };
+    } else {
+      // Sparkles: ambient screen particles
+      return {
+        x: Math.random() * (effectCanvas ? effectCanvas.width : 640),
+        y: randomY ? Math.random() * (effectCanvas.height ? effectCanvas.height : 480) : (effectCanvas.height ? effectCanvas.height : 480) + 20,
+        size: Math.random() * 8 + 4,
+        speedY: -(Math.random() * 2 + 1),
+        speedX: (Math.random() - 0.5) * 1.2,
+        opacity: Math.random() * 0.7 + 0.3,
+        life: 0,
+        maxLife: Math.random() * 100 + 50,
+        pulse: Math.random() * Math.PI,
+        pulseSpeed: Math.random() * 0.05 + 0.02,
+        rotation: Math.random() * Math.PI * 2,
+        rotSpeed: (Math.random() - 0.5) * 0.03
+      };
     }
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
   }
 
-  function drawVintageLight(ctx, width, height) {
-    ctx.save();
-    // Warm vignette & light leak effect
-    const gradient = ctx.createRadialGradient(width * 0.8, height * 0.2, 10, width * 0.8, height * 0.2, width * 0.9);
-    gradient.addColorStop(0, 'rgba(255, 200, 100, 0.25)');
-    gradient.addColorStop(0.5, 'rgba(255, 120, 50, 0.08)');
-    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, width, height);
+  function drawParticlesToContext(targetCtx, canvasWidth, canvasHeight, isLive = false, customAnchor = null) {
+    if (currentEffect === 'none') return;
 
-    // Subtle light beam streak
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(width * 0.4, 0);
-    ctx.lineTo(0, height * 0.7);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
+    if (currentEffect === 'vintage-light') {
+      targetCtx.save();
+      const gradient = targetCtx.createRadialGradient(canvasWidth * 0.8, canvasHeight * 0.2, 10, canvasWidth * 0.8, canvasHeight * 0.2, canvasWidth * 0.9);
+      gradient.addColorStop(0, 'rgba(255, 200, 100, 0.25)');
+      gradient.addColorStop(0.5, 'rgba(255, 120, 50, 0.08)');
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
+      targetCtx.fillStyle = gradient;
+      targetCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+      targetCtx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+      targetCtx.beginPath();
+      targetCtx.moveTo(0, 0);
+      targetCtx.lineTo(canvasWidth * 0.4, 0);
+      targetCtx.lineTo(0, canvasHeight * 0.7);
+      targetCtx.closePath();
+      targetCtx.fill();
+      targetCtx.restore();
+    } else if (currentEffect === 'hearts' || currentEffect === 'sparkles') {
+      if (particles.length === 0) {
+        initParticles(currentEffect);
+      }
+
+      const scaleFactor = canvasWidth / 640;
+
+      particles.forEach((p, index) => {
+        if (isLive) {
+          p.life++;
+          p.y += p.speedY;
+          p.x += p.speedX + Math.sin(p.pulse) * 0.4;
+          p.pulse += p.pulseSpeed;
+          p.rotation += p.rotSpeed;
+        }
+
+        const lifeRatio = p.life / p.maxLife;
+        const alpha = Math.max(0, p.opacity * (1 - lifeRatio) * (0.7 + 0.3 * Math.sin(p.pulse)));
+
+        let drawX, drawY;
+
+        if (currentEffect === 'hearts') {
+          const anchorX = customAnchor ? customAnchor.x : (detectedFaceForehead ? detectedFaceForehead.x : canvasWidth / 2);
+          const anchorY = customAnchor ? customAnchor.y : (detectedFaceForehead ? detectedFaceForehead.y - 35 : canvasHeight * 0.25);
+          drawX = anchorX + p.x * (isLive ? 1 : scaleFactor);
+          drawY = anchorY + p.y * (isLive ? 1 : scaleFactor);
+          drawHeart(targetCtx, drawX, drawY, p.size * (isLive ? 1 : scaleFactor), alpha);
+        } else if (currentEffect === 'sparkles') {
+          if (isLive) {
+            drawX = p.x;
+            drawY = p.y;
+          } else {
+            drawX = p.x * scaleFactor;
+            drawY = p.y * (canvasHeight / 480);
+          }
+          drawSparkle(targetCtx, drawX, drawY, p.size * (isLive ? 1 : scaleFactor), alpha, p.rotation);
+        }
+
+        if (isLive) {
+          if (currentEffect === 'hearts') {
+            if (p.life >= p.maxLife || p.y < -150 || alpha <= 0.05) {
+              particles[index] = createParticle(currentEffect, false);
+            }
+          } else if (currentEffect === 'sparkles') {
+            if (p.y < -30 || p.x < -30 || p.x > canvasWidth + 30 || p.life >= p.maxLife) {
+              particles[index] = createParticle(currentEffect, false);
+              particles[index].y = canvasHeight + 20;
+            }
+          }
+        }
+      });
+    }
   }
 
   function updateAndRenderParticles() {
     if (!effectCanvas || !effectCtx) return;
     
+    // If viewMode is preview (captured all 4 shots), clear effect overlay and stop rendering
+    if (viewMode === 'preview' || (capturedPhotos && capturedPhotos.length >= currentLayout)) {
+      effectCtx.clearRect(0, 0, effectCanvas.width, effectCanvas.height);
+      return;
+    }
+
     // Match display size
     const displayWidth = effectCanvas.clientWidth || 640;
     const displayHeight = effectCanvas.clientHeight || 480;
@@ -172,17 +281,15 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // MediaPipe face tracking detection loop for video
-    if (faceLandmarker && videoElem && videoElem.readyState === videoElem.HAVE_ENOUGH_DATA && videoElem.currentTime !== lastVideoTime) {
+    // MediaPipe face tracking detection loop for video (Hearts only)
+    if (currentEffect === 'hearts' && faceLandmarker && videoElem && videoElem.readyState === videoElem.HAVE_ENOUGH_DATA && videoElem.currentTime !== lastVideoTime) {
       lastVideoTime = videoElem.currentTime;
       try {
         const results = faceLandmarker.detectForVideo(videoElem, performance.now());
         if (results && results.faceLandmarks && results.faceLandmarks.length > 0) {
           const landmarks = results.faceLandmarks[0];
-          // Landmark #10: Forehead / Crown
           const forehead = landmarks[10];
           if (forehead) {
-            // Note: video stream may be mirrored in CSS display (`transform: scaleX(-1)`), adjust X if needed
             let fx = (isMirrored ? (1 - forehead.x) : forehead.x) * effectCanvas.width;
             let fy = forehead.y * effectCanvas.height;
             detectedFaceForehead = { x: fx, y: fy };
@@ -191,52 +298,11 @@ document.addEventListener('DOMContentLoaded', () => {
           detectedFaceForehead = null;
         }
       } catch (e) {
-        // Fallback on error
         detectedFaceForehead = null;
       }
     }
 
-    if (currentEffect === 'vintage-light') {
-      drawVintageLight(effectCtx, effectCanvas.width, effectCanvas.height);
-    } else if (currentEffect === 'hearts' || currentEffect === 'sparkles') {
-      if (particles.length === 0) {
-        initParticles(currentEffect);
-      }
-
-      particles.forEach((p, index) => {
-        p.y += p.speedY;
-        p.x += p.speedX + Math.sin(p.pulse) * 0.5;
-        p.pulse += p.pulseSpeed;
-        p.rotation += p.rotSpeed;
-
-        const alpha = p.opacity * (0.6 + 0.4 * Math.sin(p.pulse));
-
-        // If face detected for "hearts", anchor particle cluster around head region
-        let drawX = p.x;
-        let drawY = p.y;
-
-        if (currentEffect === 'hearts' && detectedFaceForehead) {
-          // Calculate offset relative to particle index and pulse
-          const angle = (index / particles.length) * Math.PI * 2 + p.pulse;
-          const radiusX = 60 + Math.sin(p.pulse * 2) * 20;
-          const radiusY = 35 + Math.cos(p.pulse * 2) * 15;
-          drawX = detectedFaceForehead.x + Math.cos(angle) * radiusX;
-          drawY = (detectedFaceForehead.y - 40) + Math.sin(angle) * radiusY - (p.pulse % 20);
-        }
-
-        if (currentEffect === 'hearts') {
-          drawHeart(effectCtx, drawX, drawY, p.size, alpha);
-        } else if (currentEffect === 'sparkles') {
-          drawSparkle(effectCtx, drawX, drawY, p.size, alpha, p.rotation);
-        }
-
-        // Recycle particle when it goes off screen
-        if (p.y < -30 || p.x < -30 || p.x > effectCanvas.width + 30) {
-          particles[index] = createParticle(currentEffect, false);
-          particles[index].y = effectCanvas.height + 20;
-        }
-      });
-    }
+    drawParticlesToContext(effectCtx, effectCanvas.width, effectCanvas.height, true);
 
     requestAnimationFrame(updateAndRenderParticles);
   }
@@ -273,6 +339,19 @@ document.addEventListener('DOMContentLoaded', () => {
       category: 'Seasonal / Special Events',
       previewImg: 'assets/frames/halloween-preview.png',
       frameImg: 'assets/frames/halloween-red.png',
+      figmaWidth: 3079,
+      slots: [
+        { x: 181, y: 483,  width: 2712, height: 1954 },
+        { x: 181, y: 2594, width: 2712, height: 1954 },
+        { x: 181, y: 4705, width: 2712, height: 1954 },
+        { x: 181, y: 6816, width: 2712, height: 1954 }
+      ]
+    },
+    'halloween-orange': {
+      displayName: 'Halloween Orange',
+      category: 'Seasonal / Special Events',
+      previewImg: 'assets/frames/halloween-orange-preview.png',
+      frameImg: 'assets/frames/halloween-orange.png',
       figmaWidth: 3079,
       slots: [
         { x: 181, y: 483,  width: 2712, height: 1954 },
@@ -578,36 +657,18 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.fillRect(0, 0, w, h);
       }
 
-      // Render active particle effects or vintage light onto captured snapshot
-      if (currentEffect === 'vintage-light') {
-        const gradient = ctx.createRadialGradient(w * 0.8, h * 0.2, 10, w * 0.8, h * 0.2, w * 0.9);
-        gradient.addColorStop(0, 'rgba(255, 200, 100, 0.25)');
-        gradient.addColorStop(0.5, 'rgba(255, 120, 50, 0.08)');
-        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, w, h);
+      // Un-mirror context back to normal for particle drawing if mirrored
+      if (isMirrored) {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      }
 
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(w * 0.4, 0);
-        ctx.lineTo(0, h * 0.7);
-        ctx.closePath();
-        ctx.fill();
-      } else if (currentEffect === 'hearts' || currentEffect === 'sparkles') {
-        const scaleFactor = w / 640;
-        particles.forEach(p => {
-          const snapX = p.x * scaleFactor;
-          const snapY = p.y * (h / (effectCanvas.height || 480));
-          const snapSize = p.size * scaleFactor;
-          const alpha = p.opacity;
-
-          if (currentEffect === 'hearts') {
-            drawHeart(ctx, snapX, snapY, snapSize, alpha);
-          } else if (currentEffect === 'sparkles') {
-            drawSparkle(ctx, snapX, snapY, snapSize, alpha, p.rotation);
-          }
-        });
+      // CRITICAL: Bake current active effect into snapshot photo using shared renderer
+      if (currentEffect !== 'none') {
+        const customAnchor = detectedFaceForehead ? {
+          x: (isMirrored ? (1 - (detectedFaceForehead.x / (effectCanvas.clientWidth || 640))) : (detectedFaceForehead.x / (effectCanvas.clientWidth || 640))) * w,
+          y: (detectedFaceForehead.y / (effectCanvas.clientHeight || 480)) * h
+        } : null;
+        drawParticlesToContext(ctx, w, h, false, customAnchor);
       }
       
       const flashDiv = document.createElement('div');
