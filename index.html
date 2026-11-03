@@ -31,8 +31,90 @@
         <button class="filter active" data-filter="all">All layouts</button>
         <button class="filter" data-filter="Collab & Brands">Collab & Brands</button>
         <button class="filter" data-filter="Seasonal / Special Events">Seasonal / Special Events</button>
+        <button class="filter" data-filter="Formula 1 Edition">Formula 1 Edition</button>
       </div>
-      <div id="templateCategoriesContainer" style="display: flex; flex-direction: column; gap: 48px;"></div>
+      <div id="templateCategoriesContainer" style="display: flex; flex-direction: column; gap: 48px;">
+        <!-- Collab & Brands Section -->
+        <div class="category-group" data-category="Collab & Brands">
+          <h3 class="category-title">Collab & Brands</h3>
+          <div class="template-grid">
+            <article class="template-card" data-id="tebs-edition">
+              <div class="template-preview" style="background: url('assets/frames/tebs-preview.png') center/contain no-repeat #0b1329;">
+                <div class="preview-badge">Trending +</div>
+              </div>
+              <div class="template-info">
+                <div>
+                  <h3>TEBS Edition</h3>
+                  <p>4 Photos · Studio Quality</p>
+                </div>
+                <button class="select-layout" onclick="selectAndLaunchStudio('tebs-edition')">Use layout <span>→</span></button>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <!-- Seasonal / Special Events Section -->
+        <div class="category-group" data-category="Seasonal / Special Events">
+          <h3 class="category-title">Seasonal / Special Events</h3>
+          <div class="template-grid">
+            <article class="template-card" data-id="halloween-red">
+              <div class="template-preview" style="background: url('assets/frames/halloween-pre-view.png') center/contain no-repeat #0b1329;">
+                <div class="preview-badge">Halloween 🎃</div>
+              </div>
+              <div class="template-info">
+                <div>
+                  <h3>Halloween Edition</h3>
+                  <p>4 Photos · Studio Quality</p>
+                </div>
+                <button class="select-layout" onclick="selectAndLaunchStudio('halloween-red')">Use layout <span>→</span></button>
+              </div>
+            </article>
+            <article class="template-card" data-id="halloween-orange">
+              <div class="template-preview" style="background: url('assets/frames/halloween-orange-preview.png') center/contain no-repeat #0b1329;">
+                <div class="preview-badge">Halloween 🎃</div>
+              </div>
+              <div class="template-info">
+                <div>
+                  <h3>Halloween Orange</h3>
+                  <p>4 Photos · Studio Quality</p>
+                </div>
+                <button class="select-layout" onclick="selectAndLaunchStudio('halloween-orange')">Use layout <span>→</span></button>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <!-- Formula 1 Edition Section -->
+        <div class="category-group" data-category="Formula 1 Edition">
+          <h3 class="category-title">Formula 1 Edition</h3>
+          <div class="template-grid">
+            <article class="template-card" data-id="mclaren-f1">
+              <div class="template-preview" style="background: url('assets/frames/mclaren-f1-preview.png') center/contain no-repeat #0b1329;">
+                <div class="preview-badge">F1 Special 🏎️</div>
+              </div>
+              <div class="template-info">
+                <div>
+                  <h3>McLaren F1</h3>
+                  <p>4 Photos · Studio Quality</p>
+                </div>
+                <button class="select-layout" onclick="selectAndLaunchStudio('mclaren-f1')">Use layout <span>→</span></button>
+              </div>
+            </article>
+            <article class="template-card" data-id="oracle-rb">
+              <div class="template-preview" style="background: url('assets/frames/oracle-rb-preview.png') center/contain no-repeat #0b1329;">
+                <div class="preview-badge">F1 Special 🏎️</div>
+              </div>
+              <div class="template-info">
+                <div>
+                  <h3>Oracle Red Bull</h3>
+                  <p>4 Photos · Studio Quality</p>
+                </div>
+                <button class="select-layout" onclick="selectAndLaunchStudio('oracle-rb')">Use layout <span>→</span></button>
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
     </section>
 
     <section class="studio section" id="studio"><div class="studio-shell"><div class="studio-top"><div><div class="eyebrow">Poseyyy studio</div><h2>Ready when <em>you are.</em></h2></div><div class="shot-count">SHOT <b id="shotCount">0</b> / <span id="totalShots">4</span></div></div><div class="studio-content"><div class="camera-wrap"><video id="camera-video" autoplay playsinline muted></video><canvas id="preview-canvas" style="display: none;"></canvas><div class="camera-placeholder" id="cameraPlaceholder"><span>◉</span><b>Your camera preview lives here</b><small>Allow camera access, or upload a photo to begin.</small></div><div class="camera-overlay"><span id="activeFilterLabel">NORMAL</span><span id="cameraStatus">Camera ready</span></div></div><aside class="controls"><div class="thumbs" id="thumbs"><div class="thumb empty">01</div><div class="thumb empty">02</div><div class="thumb empty">03</div><div class="thumb empty">04</div></div><div class="control-row"><button class="round-control" id="mirrorBtn" title="Mirror camera">↔</button><button class="shutter" id="shutter-btn" aria-label="Take photo"><span></span></button><label class="round-control upload-label" title="Upload photo">↑<input type="file" id="local-file-input" accept="image/*" multiple style="display: none;"></label></div><div class="filter-dock"><span>TIMER</span><div class="filter-options" id="timerOptions"><button class="filter-choice timer-choice" data-time="0">0s</button><button class="filter-choice timer-choice active" data-time="3">3s</button><button class="filter-choice timer-choice" data-time="10">10s</button><button class="filter-choice timer-choice" data-time="15">15s</button></div></div>

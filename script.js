@@ -411,6 +411,32 @@ document.addEventListener('DOMContentLoaded', () => {
         { x: 181, y: 4705, width: 2712, height: 1954 },
         { x: 181, y: 6816, width: 2712, height: 1954 }
       ]
+    },
+    'mclaren-f1': {
+      displayName: 'McLaren F1',
+      category: 'Formula 1 Edition',
+      previewImg: 'assets/frames/mclaren-f1-preview.png',
+      frameImg: 'assets/frames/mclaren-f1.png',
+      figmaWidth: 3079,
+      slots: [
+        { x: 181, y: 483,  width: 2712, height: 1954 },
+        { x: 181, y: 2594, width: 2712, height: 1954 },
+        { x: 181, y: 4705, width: 2712, height: 1954 },
+        { x: 181, y: 6816, width: 2712, height: 1954 }
+      ]
+    },
+    'oracle-rb': {
+      displayName: 'Oracle Red Bull',
+      category: 'Formula 1 Edition',
+      previewImg: 'assets/frames/oracle-rb-preview.png',
+      frameImg: 'assets/frames/oracle-rb.png',
+      figmaWidth: 3079,
+      slots: [
+        { x: 181, y: 483,  width: 2712, height: 1954 },
+        { x: 181, y: 2594, width: 2712, height: 1954 },
+        { x: 181, y: 4705, width: 2712, height: 1954 },
+        { x: 181, y: 6816, width: 2712, height: 1954 }
+      ]
     }
   };
 
