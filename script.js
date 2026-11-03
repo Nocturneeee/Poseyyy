@@ -18,13 +18,241 @@ document.addEventListener('DOMContentLoaded', () => {
   const controlRow = document.getElementById('controlRow');
 
   let stream = null;
+  let isMirrored = true; // Default webcam mirror state
+  let selectedTimer = 3; // Default timer (0, 3, 10, or 15)
   let currentFilter = 'none';
-  let isMirrored = true;
-  let currentLayout = 4;
-  let capturedPhotos = []; // Using capturedPhotos as requested
-  let selectedTimer = 3;
-  let isCountingDown = false;
-  let viewMode = 'camera'; // 'camera' | 'preview'
+  let currentEffect = 'none';
+  let capturedPhotos = [];
+  let effectChoices = [];
+  let faceLandmarker = null;
+  let isMediaPipeReady = false;
+  let isCapturing = false;
+  let lastVideoTime = -1;
+  let detectedFaceForehead = null; // { x, y }
+
+  async function initMediaPipe() {
+    try {
+      if (typeof vision === 'undefined') {
+        console.warn('MediaPipe Vision SDK not loaded. Falling back to vanilla canvas particle effects.');
+        return;
+      }
+      const filesetResolver = await vision.FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+      );
+      faceLandmarker = await vision.FaceLandmarker.createFromOptions(filesetResolver, {
+        baseOptions: {
+          modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+          delegate: "GPU"
+        },
+        runningMode: "VIDEO",
+        numFaces: 1
+      });
+      isMediaPipeReady = true;
+      console.log("MediaPipe Face Landmarker Ready!");
+    } catch (err) {
+      console.error("MediaPipe Init Error (Fallback enabled):", err);
+    }
+  }
+  setTimeout(initMediaPipe, 1000);
+
+  // Create live effect overlay canvas over the video element
+  const effectCanvas = document.createElement('canvas');
+  effectCanvas.id = 'effect-canvas';
+  effectCanvas.style.cssText = 'position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; display: block;';
+  const cameraWrap = document.querySelector('.camera-wrap');
+  if (cameraWrap) {
+    cameraWrap.appendChild(effectCanvas);
+  }
+  const effectCtx = effectCanvas.getContext('2d');
+
+  // Particle systems state
+  let particles = [];
+  const maxParticles = 25;
+
+  function initParticles(type) {
+    particles = [];
+    for (let i = 0; i < maxParticles; i++) {
+      particles.push(createParticle(type, true));
+    }
+  }
+
+  function createParticle(type, randomY = false) {
+    return {
+      x: Math.random() * (effectCanvas.width || 640),
+      y: randomY ? Math.random() * (effectCanvas.height || 480) : (effectCanvas.height || 480) + 20,
+      size: type === 'hearts' ? Math.random() * 16 + 10 : (type === 'sparkles' ? Math.random() * 8 + 4 : Math.random() * 30 + 15),
+      speedY: type === 'hearts' ? -(Math.random() * 1.5 + 0.8) : (type === 'sparkles' ? -(Math.random() * 2 + 1) : -(Math.random() * 0.8 + 0.4)),
+      speedX: (Math.random() - 0.5) * 1.2,
+      opacity: Math.random() * 0.7 + 0.3,
+      pulse: Math.random() * Math.PI,
+      pulseSpeed: Math.random() * 0.05 + 0.02,
+      rotation: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.03
+    };
+  }
+
+  function drawHeart(ctx, x, y, size, alpha) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(size / 24, size / 24);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#ff3366';
+    ctx.shadowColor = '#ff6699';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.moveTo(0, 7);
+    ctx.bezierCurveTo(0, 3, -5, 0, -10, 0);
+    ctx.bezierCurveTo(-16, 0, -20, 5, -20, 11);
+    ctx.bezierCurveTo(-20, 18, -12, 24, 0, 31);
+    ctx.bezierCurveTo(12, 24, 20, 18, 20, 11);
+    ctx.bezierCurveTo(20, 5, 16, 0, 10, 0);
+    ctx.bezierCurveTo(5, 0, 0, 3, 0, 7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawSparkle(ctx, x, y, size, alpha, rotation) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rotation);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowColor = '#0ea5e9';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    for (let i = 0; i < 4; i++) {
+      ctx.lineTo(0, -size);
+      ctx.quadraticCurveTo(0, 0, size, 0);
+      ctx.quadraticCurveTo(0, 0, 0, size);
+      ctx.quadraticCurveTo(0, 0, -size, 0);
+      ctx.rotate(Math.PI / 2);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawVintageLight(ctx, width, height) {
+    ctx.save();
+    // Warm vignette & light leak effect
+    const gradient = ctx.createRadialGradient(width * 0.8, height * 0.2, 10, width * 0.8, height * 0.2, width * 0.9);
+    gradient.addColorStop(0, 'rgba(255, 200, 100, 0.25)');
+    gradient.addColorStop(0.5, 'rgba(255, 120, 50, 0.08)');
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, width, height);
+
+    // Subtle light beam streak
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(width * 0.4, 0);
+    ctx.lineTo(0, height * 0.7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function updateAndRenderParticles() {
+    if (!effectCanvas || !effectCtx) return;
+    
+    // Match display size
+    const displayWidth = effectCanvas.clientWidth || 640;
+    const displayHeight = effectCanvas.clientHeight || 480;
+    if (effectCanvas.width !== displayWidth || effectCanvas.height !== displayHeight) {
+      effectCanvas.width = displayWidth;
+      effectCanvas.height = displayHeight;
+    }
+
+    effectCtx.clearRect(0, 0, effectCanvas.width, effectCanvas.height);
+
+    if (currentEffect === 'none') {
+      requestAnimationFrame(updateAndRenderParticles);
+      return;
+    }
+
+    // MediaPipe face tracking detection loop for video
+    if (faceLandmarker && videoElem && videoElem.readyState === videoElem.HAVE_ENOUGH_DATA && videoElem.currentTime !== lastVideoTime) {
+      lastVideoTime = videoElem.currentTime;
+      try {
+        const results = faceLandmarker.detectForVideo(videoElem, performance.now());
+        if (results && results.faceLandmarks && results.faceLandmarks.length > 0) {
+          const landmarks = results.faceLandmarks[0];
+          // Landmark #10: Forehead / Crown
+          const forehead = landmarks[10];
+          if (forehead) {
+            // Note: video stream may be mirrored in CSS display (`transform: scaleX(-1)`), adjust X if needed
+            let fx = (isMirrored ? (1 - forehead.x) : forehead.x) * effectCanvas.width;
+            let fy = forehead.y * effectCanvas.height;
+            detectedFaceForehead = { x: fx, y: fy };
+          }
+        } else {
+          detectedFaceForehead = null;
+        }
+      } catch (e) {
+        // Fallback on error
+        detectedFaceForehead = null;
+      }
+    }
+
+    if (currentEffect === 'vintage-light') {
+      drawVintageLight(effectCtx, effectCanvas.width, effectCanvas.height);
+    } else if (currentEffect === 'hearts' || currentEffect === 'sparkles') {
+      if (particles.length === 0) {
+        initParticles(currentEffect);
+      }
+
+      particles.forEach((p, index) => {
+        p.y += p.speedY;
+        p.x += p.speedX + Math.sin(p.pulse) * 0.5;
+        p.pulse += p.pulseSpeed;
+        p.rotation += p.rotSpeed;
+
+        const alpha = p.opacity * (0.6 + 0.4 * Math.sin(p.pulse));
+
+        // If face detected for "hearts", anchor particle cluster around head region
+        let drawX = p.x;
+        let drawY = p.y;
+
+        if (currentEffect === 'hearts' && detectedFaceForehead) {
+          // Calculate offset relative to particle index and pulse
+          const angle = (index / particles.length) * Math.PI * 2 + p.pulse;
+          const radiusX = 60 + Math.sin(p.pulse * 2) * 20;
+          const radiusY = 35 + Math.cos(p.pulse * 2) * 15;
+          drawX = detectedFaceForehead.x + Math.cos(angle) * radiusX;
+          drawY = (detectedFaceForehead.y - 40) + Math.sin(angle) * radiusY - (p.pulse % 20);
+        }
+
+        if (currentEffect === 'hearts') {
+          drawHeart(effectCtx, drawX, drawY, p.size, alpha);
+        } else if (currentEffect === 'sparkles') {
+          drawSparkle(effectCtx, drawX, drawY, p.size, alpha, p.rotation);
+        }
+
+        // Recycle particle when it goes off screen
+        if (p.y < -30 || p.x < -30 || p.x > effectCanvas.width + 30) {
+          particles[index] = createParticle(currentEffect, false);
+          particles[index].y = effectCanvas.height + 20;
+        }
+      });
+    }
+
+    requestAnimationFrame(updateAndRenderParticles);
+  }
+  requestAnimationFrame(updateAndRenderParticles);
+
+  effectChoices = document.querySelectorAll('.effect-choice, .effect-btn, [data-effect]');
+  if (effectChoices.length > 0) {
+    effectChoices.forEach(btn => {
+      btn.addEventListener('click', () => {
+        effectChoices.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentEffect = btn.dataset.effect || btn.textContent.toLowerCase().trim();
+        initParticles(currentEffect);
+      });
+    });
+  }
 
   const FRAME_DATABASE = {
     'tebs-edition': {
@@ -201,14 +429,40 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   async function initCamera() {
+    const videoElement = document.querySelector('video') || document.querySelector('#camera-video');
+    const placeholderElem = document.querySelector('#cameraPlaceholder') || document.querySelector('.camera-placeholder');
+    const statusBadge = document.querySelector('#cameraStatus') || document.querySelector('.camera-status-badge');
+
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
-      if (videoElem) videoElem.srcObject = stream;
-      if (placeholder) placeholder.style.display = 'none';
-      if (cameraStatus) cameraStatus.textContent = 'Camera live';
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user'
+        },
+        audio: false
+      });
+
+      if (videoElement) {
+        videoElement.srcObject = stream;
+        videoElement.setAttribute('playsinline', '');
+        videoElement.setAttribute('muted', '');
+        videoElement.muted = true;
+        
+        await videoElement.play();
+
+        // EXPLICIT DOM SWAP
+        videoElement.style.display = 'block';
+        if (placeholderElem) placeholderElem.style.display = 'none';
+        if (statusBadge) statusBadge.textContent = 'Camera ready';
+      }
+
     } catch (err) {
-      console.warn('Camera access denied or unavailable:', err);
-      if (cameraStatus) cameraStatus.textContent = 'Camera off (Upload ready)';
+      console.error('CAMERA INIT ERROR:', err);
+      if (placeholderElem) placeholderElem.style.display = 'flex';
+      if (videoElement) videoElement.style.display = 'none';
+      if (statusBadge) statusBadge.textContent = 'Camera Error';
+      alert('Camera access denied or unavailable. Please check browser permissions.');
     }
   }
   initCamera();
@@ -262,7 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (shutterBtn) {
     shutterBtn.addEventListener('click', () => {
-      if (isCountingDown || capturedPhotos.length >= currentLayout || viewMode !== 'camera') return;
+      if (isCountingDown || isCapturing || capturedPhotos.length >= currentLayout || viewMode !== 'camera') return;
       
       if (selectedTimer === 0) {
         if (cameraStatus) cameraStatus.textContent = 'Say cheese! 📸';
@@ -300,68 +554,85 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 1000);
   }
 
-  // 2. Connect Local File Upload Reader to updateThumbs()
-  function handleFileUpload(files) {
-    const remaining = currentLayout - capturedPhotos.length;
-    const filesToProcess = Array.from(files).slice(0, remaining);
-
-    filesToProcess.forEach(file => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        capturedPhotos.push(e.target.result);
-        updateThumbs();
-      };
-      reader.readAsDataURL(file);
-    });
-  }
-
-  if (uploadInput) {
-    uploadInput.addEventListener('change', (e) => {
-      handleFileUpload(e.target.files);
-      uploadInput.value = '';
-    });
-  }
-
   function captureFrame() {
-    const w = (videoElem && videoElem.videoWidth) || 1280;
-    const h = (videoElem && videoElem.videoHeight) || 720;
-    const hiddenCanvas = document.createElement('canvas');
-    hiddenCanvas.width = w;
-    hiddenCanvas.height = h;
-    const ctx = hiddenCanvas.getContext('2d');
-    
-    ctx.filter = getFilterCSS(currentFilter);
-    if (isMirrored && videoElem) {
-      ctx.translate(w, 0);
-      ctx.scale(-1, 1);
-    }
-    if (videoElem && videoElem.readyState === videoElem.HAVE_ENOUGH_DATA) {
-      ctx.drawImage(videoElem, 0, 0, w, h);
-    } else {
-      ctx.fillStyle = '#0284c7';
-      ctx.fillRect(0, 0, w, h);
-    }
-    
-    const flashDiv = document.createElement('div');
-    flashDiv.style.position = 'absolute';
-    flashDiv.style.top = '0';
-    flashDiv.style.left = '0';
-    flashDiv.style.width = '100%';
-    flashDiv.style.height = '100%';
-    flashDiv.style.background = '#ffffff';
-    flashDiv.style.zIndex = '50';
-    flashDiv.style.transition = 'opacity 0.3s ease';
-    const cameraWrap = document.querySelector('.camera-wrap');
-    if (cameraWrap) cameraWrap.appendChild(flashDiv);
-    setTimeout(() => { flashDiv.style.opacity = '0'; }, 50);
-    setTimeout(() => { flashDiv.remove(); }, 350);
+    if (isCapturing) return;
+    isCapturing = true;
 
-    const photoDataUrl = hiddenCanvas.toDataURL('image/png');
-    capturedPhotos.push(photoDataUrl);
-    updateThumbs();
+    try {
+      const w = (videoElem && videoElem.videoWidth) || 1280;
+      const h = (videoElem && videoElem.videoHeight) || 720;
+      const hiddenCanvas = document.createElement('canvas');
+      hiddenCanvas.width = w;
+      hiddenCanvas.height = h;
+      const ctx = hiddenCanvas.getContext('2d');
+      
+      ctx.filter = getFilterCSS(currentFilter);
+      if (isMirrored && videoElem) {
+        ctx.translate(w, 0);
+        ctx.scale(-1, 1);
+      }
+      if (videoElem && videoElem.readyState === videoElem.HAVE_ENOUGH_DATA) {
+        ctx.drawImage(videoElem, 0, 0, w, h);
+      } else {
+        ctx.fillStyle = '#0284c7';
+        ctx.fillRect(0, 0, w, h);
+      }
 
-    if (cameraStatus && capturedPhotos.length < currentLayout) {
-      cameraStatus.textContent = `Camera ready (${capturedPhotos.length}/${currentLayout})`;
+      // Render active particle effects or vintage light onto captured snapshot
+      if (currentEffect === 'vintage-light') {
+        const gradient = ctx.createRadialGradient(w * 0.8, h * 0.2, 10, w * 0.8, h * 0.2, w * 0.9);
+        gradient.addColorStop(0, 'rgba(255, 200, 100, 0.25)');
+        gradient.addColorStop(0.5, 'rgba(255, 120, 50, 0.08)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.35)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(w * 0.4, 0);
+        ctx.lineTo(0, h * 0.7);
+        ctx.closePath();
+        ctx.fill();
+      } else if (currentEffect === 'hearts' || currentEffect === 'sparkles') {
+        const scaleFactor = w / 640;
+        particles.forEach(p => {
+          const snapX = p.x * scaleFactor;
+          const snapY = p.y * (h / (effectCanvas.height || 480));
+          const snapSize = p.size * scaleFactor;
+          const alpha = p.opacity;
+
+          if (currentEffect === 'hearts') {
+            drawHeart(ctx, snapX, snapY, snapSize, alpha);
+          } else if (currentEffect === 'sparkles') {
+            drawSparkle(ctx, snapX, snapY, snapSize, alpha, p.rotation);
+          }
+        });
+      }
+      
+      const flashDiv = document.createElement('div');
+      flashDiv.style.position = 'absolute';
+      flashDiv.style.top = '0';
+      flashDiv.style.left = '0';
+      flashDiv.style.width = '100%';
+      flashDiv.style.height = '100%';
+      flashDiv.style.background = '#ffffff';
+      flashDiv.style.zIndex = '50';
+      flashDiv.style.transition = 'opacity 0.3s ease';
+      const cameraWrap = document.querySelector('.camera-wrap');
+      if (cameraWrap) cameraWrap.appendChild(flashDiv);
+      setTimeout(() => { flashDiv.style.opacity = '0'; }, 50);
+      setTimeout(() => { flashDiv.remove(); }, 350);
+
+      const photoDataUrl = hiddenCanvas.toDataURL('image/png');
+      capturedPhotos.push(photoDataUrl);
+      updateThumbs();
+
+      if (cameraStatus && capturedPhotos.length < currentLayout) {
+        cameraStatus.textContent = `Camera ready (${capturedPhotos.length}/${currentLayout})`;
+      }
+    } finally {
+      isCapturing = false;
     }
   }
 
@@ -436,11 +707,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (downloadBtn) {
       downloadBtn.disabled = true;
-      downloadBtn.textContent = 'Processing... ⏳';
+      downloadBtn.textContent = 'Downloading... ⏳';
     }
 
     // Give the UI thread time to render the button text before heavy processing
     await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Mobile vs Desktop Device Detection
+    const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) 
+                           || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
     const selectedFrame = FRAME_DATABASE[selectedFrameKey];
     const frameImg = new Image();
@@ -468,54 +743,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
         exportCanvas.toBlob(async (blob) => {
           if (!blob) {
-            alert('Export failed. Please try again.');
+            alert('Failed to generate image.');
             resetDownloadBtn(downloadBtn);
             return;
           }
 
-          const fileName = `poseyyy-${selectedFrameKey}-${Date.now()}.png`;
+          const fileName = `poseyyy-${selectedFrameKey || 'strip'}-${Date.now()}.png`;
           const file = new File([blob], fileName, { type: 'image/png' });
 
-          // 2. Try Native Web Share API (Best for iOS)
-          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          // PATH A: MOBILE DEVICES (iOS / Android) -> Use Web Share API if available
+          if (isMobileDevice && navigator.canShare && navigator.canShare({ files: [file] })) {
             try {
               await navigator.share({
                 files: [file],
                 title: 'My Photo Strip',
-                text: 'Check out my photo strip!'
+                text: 'Check out my photobooth strip!'
               });
               resetDownloadBtn(downloadBtn);
               return;
             } catch (err) {
-              // User cancelled share or share failed
-              if (err.name === 'AbortError') {
-                resetDownloadBtn(downloadBtn);
-                return;
+              if (err.name !== 'AbortError') {
+                triggerDirectDownload(blob, fileName);
               }
+              resetDownloadBtn(downloadBtn);
+              return;
             }
           }
 
-          // 3. iOS Fallback: Open Image Modal for Manual "Tap & Hold -> Save to Photos"
-          const imageUrl = URL.createObjectURL(blob);
-          
-          // Detect iOS / Mobile
-          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-          if (isIOS) {
-            showIOSDownloadModal(imageUrl, fileName);
-          } else {
-            // Standard desktop anchor download trigger
-            const link = document.createElement('a');
-            link.href = imageUrl;
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            setTimeout(() => URL.revokeObjectURL(imageUrl), 10000);
-          }
-
+          // PATH B: DESKTOP / LAPTOP (Windows / Mac / Linux) -> Direct Browser Download
+          triggerDirectDownload(blob, fileName);
           resetDownloadBtn(downloadBtn);
-        }, 'image/png', 0.90);
+
+        }, 'image/png', 0.95);
       };
 
       selectedFrame.slots.forEach((slot, index) => {
@@ -555,6 +814,26 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     frameImg.src = `${selectedFrame.frameImg}?t=${Date.now()}`;
+  }
+
+  function triggerDirectDownload(blob, fileName) {
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Clean up memory
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+  }
+
+  function resetDownloadBtn(btn) {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Download your strip ↓';
+    }
   }
 
   function getMobileOptimizedCanvas(sourceCanvas, maxWidth) {
