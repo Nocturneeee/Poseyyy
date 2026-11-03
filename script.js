@@ -502,7 +502,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
           if (isIOS) {
-            showIOSDownloadModal(imageUrl);
+            showIOSDownloadModal(imageUrl, fileName);
           } else {
             // Standard desktop anchor download trigger
             const link = document.createElement('a');
@@ -574,12 +574,13 @@ document.addEventListener('DOMContentLoaded', () => {
     return canvas;
   }
 
-  function showIOSDownloadModal(imgSrc) {
-    const existingModal = document.getElementById('iosDownloadModal');
+  function showIOSDownloadModal(imgSrc, fileName = 'my-photo-strip.png') {
+    const existingModal = document.getElementById('download-modal');
     if (existingModal) existingModal.remove();
 
     const modal = document.createElement('div');
-    modal.id = 'iosDownloadModal';
+    modal.id = 'download-modal';
+    modal.className = 'modal-overlay';
     modal.style.cssText = `
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(15, 23, 42, 0.9); z-index: 9999;
@@ -588,22 +589,31 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
 
     modal.innerHTML = `
-      <div style="background: #1e293b; border-radius: 20px; padding: 24px; max-width: 360px; width: 100%; text-align: center; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
-        <h3 style="color: #ffffff; font-size: 18px; margin-bottom: 8px; font-family: 'Plus Jakarta Sans', sans-serif;">Your Photo Strip is Ready! ✨</h3>
-        <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px; line-height: 1.4;">Tekan dan tahan gambar di bawah lalu pilih <b>'Simpan ke Foto'</b> (Add to Photos)</p>
-        <div style="background: #0b1329; border-radius: 12px; overflow: hidden; max-height: 380px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1);">
-          <img src="${imgSrc}" style="max-width: 100%; max-height: 360px; object-fit: contain; border-radius: 8px;" />
+      <div class="modal-card" style="background: #1e293b; border-radius: 20px; padding: 24px; max-width: 360px; width: 100%; text-align: center; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+        <h3 style="color: #ffffff; font-size: 18px; margin-bottom: 16px; font-family: 'Plus Jakarta Sans', sans-serif;">Your Photo Strip is Ready! ✨</h3>
+        
+        <div class="preview-container" style="background: #0b1329; border-radius: 12px; overflow: hidden; max-height: 360px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.1); padding: 8px;">
+          <img id="modal-preview-img" src="${imgSrc}" alt="Photo Strip Preview" style="max-width: 100%; max-height: 340px; object-fit: contain; border-radius: 8px; user-select: auto; -webkit-touch-callout: default; pointer-events: auto;" />
         </div>
-        <button id="closeIosModal" style="background: #0ea5e9; color: white; border: none; padding: 12px 24px; border-radius: 9999px; font-weight: 600; font-size: 14px; width: 100%; cursor: pointer;">Close & Continue</button>
+
+        <div class="modal-actions" style="display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 16px;">
+          <a id="modal-download-btn" class="btn-primary button" href="${imgSrc}" download="${fileName}" style="text-align: center; text-decoration: none; justify-content: center; width: 100%; background: var(--sky-500); color: white; padding: 12px 16px; border-radius: 9999px; font-weight: 600; font-size: 14px; box-sizing: border-box;">Download Photo ↓</a>
+          <button id="modal-close-btn" class="btn-secondary" style="background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); padding: 12px 16px; border-radius: 9999px; font-weight: 600; font-size: 14px; cursor: pointer; width: 100%;">Close & Continue</button>
+        </div>
       </div>
     `;
 
     document.body.appendChild(modal);
 
-    const closeBtn = modal.querySelector('#closeIosModal');
+    const closeBtn = modal.querySelector('#modal-close-btn');
     closeBtn.addEventListener('click', () => {
       modal.remove();
       setTimeout(() => URL.revokeObjectURL(imgSrc), 10000);
+    });
+
+    const downloadLink = modal.querySelector('#modal-download-btn');
+    downloadLink.addEventListener('click', () => {
+      // Optional extra handling if needed, standard anchor download will trigger
     });
   }
 
