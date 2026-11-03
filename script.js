@@ -20,28 +20,93 @@ document.addEventListener('DOMContentLoaded', () => {
   let stream = null;
   let isMirrored = true; // Default webcam mirror state
   let selectedTimer = 3; // Default timer (0, 3, 10, or 15)
-  let currentFilter = 'none';
-  let currentEffect = 'none'; // 'none' | 'hearts' | 'sparkles' | 'vintage-light'
+  let currentFilter = 'normal'; // 'normal' | 'soft' | 'bw' | 'warm' | 'fade'
+  let currentEffect = 'none';   // 'none' | 'hearts' | 'sparkles' | 'vintage-light'
   let capturedPhotos = [];
   let effectChoices = [];
   let faceLandmarker = null;
   let isMediaPipeReady = false;
   let isCapturing = false;
+  let isCountingDown = false;
   let lastVideoTime = -1;
-  let detectedFaceForehead = null; // { x, y }
+  let headX = null;
+  let headY = null;
+  let detectedFaceForehead = null; // { x: number, y: number } or null
+  let viewMode = 'studio'; // 'studio' | 'preview'
+  let currentLayout = 4; // Default photo strip shot count / layout slots (e.g. 4)
+
+  function updateHeadCoordinates() {
+    const videoElem = document.querySelector('video') || document.querySelector('#camera-video');
+    const overlayCanvas = document.querySelector('#effect-canvas') || document.querySelector('canvas');
+
+    if (!videoElem || !isMediaPipeReady || !faceLandmarker) {
+      headX = null;
+      headY = null;
+      detectedFaceForehead = null;
+      return;
+    }
+
+    if (videoElem.readyState < 2 || videoElem.paused || videoElem.ended) {
+      headX = null;
+      headY = null;
+      detectedFaceForehead = null;
+      return;
+    }
+
+    try {
+      // Only run detection if video frame has advanced
+      if (videoElem.currentTime !== lastVideoTime) {
+        lastVideoTime = videoElem.currentTime;
+
+        const startTimeMs = performance.now();
+        const results = faceLandmarker.detectForVideo(videoElem, startTimeMs);
+
+        if (results && results.faceLandmarks && results.faceLandmarks.length > 0) {
+          const landmarks = results.faceLandmarks[0];
+          const forehead = landmarks[10]; // Crown/forehead landmark #10
+
+          if (forehead) {
+            const canvasWidth = overlayCanvas ? overlayCanvas.width : (videoElem.videoWidth || 1280);
+            const canvasHeight = overlayCanvas ? overlayCanvas.height : (videoElem.videoHeight || 720);
+            const shouldMirror = typeof isMirrored !== 'undefined' ? isMirrored : true;
+
+            // Map 0.0-1.0 normalized coordinates to canvas dimensions
+            const rawX = shouldMirror ? (1 - forehead.x) * canvasWidth : forehead.x * canvasWidth;
+            const rawY = forehead.y * canvasHeight;
+
+            // Smooth interpolation to avoid jitter
+            headX = headX === null ? rawX : headX + (rawX - headX) * 0.3;
+            headY = headY === null ? rawY : headY + (rawY - headY) * 0.3;
+            detectedFaceForehead = { x: headX, y: headY };
+          }
+        } else {
+          headX = null;
+          headY = null;
+          detectedFaceForehead = null;
+        }
+      }
+    } catch (err) {
+      console.error("FaceLandmarker Error:", err);
+      headX = null;
+      headY = null;
+      detectedFaceForehead = null;
+    }
+  }
   let maxParticles = 35; // Global max particle limit
   let particlesArray = [];
   let particles = [];
 
   async function initMediaPipe() {
     try {
-      if (typeof vision === 'undefined') {
-        console.warn('MediaPipe Vision SDK not loaded. Falling back to vanilla canvas particle effects.');
-        return;
-      }
+      console.log("Importing MediaPipe Tasks Vision via ESM...");
+
+      // Dynamic import directly from jsDelivr ESM bundle
+      const vision = await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm");
+
       const filesetResolver = await vision.FilesetResolver.forVisionTasks(
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
       );
+
       faceLandmarker = await vision.FaceLandmarker.createFromOptions(filesetResolver, {
         baseOptions: {
           modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
@@ -50,13 +115,16 @@ document.addEventListener('DOMContentLoaded', () => {
         runningMode: "VIDEO",
         numFaces: 1
       });
+
       isMediaPipeReady = true;
-      console.log("MediaPipe Face Landmarker Ready!");
+      console.log("%c ✅ MEDIAPIPE FACE TRACKING IS ACTIVE & READY!", "color: #00ff00; font-weight: bold; font-size: 14px;");
+
     } catch (err) {
-      console.error("MediaPipe Init Error (Fallback enabled):", err);
+      console.error("❌ ES Module Import Failed:", err);
+      isMediaPipeReady = false;
     }
   }
-  setTimeout(initMediaPipe, 1000);
+  initMediaPipe();
 
   // Create live effect overlay canvas over the video element
   const effectCanvas = document.createElement('canvas');
@@ -282,24 +350,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // MediaPipe face tracking detection loop for video (Hearts only)
-    if (currentEffect === 'hearts' && faceLandmarker && videoElem && videoElem.readyState === videoElem.HAVE_ENOUGH_DATA && videoElem.currentTime !== lastVideoTime) {
-      lastVideoTime = videoElem.currentTime;
-      try {
-        const results = faceLandmarker.detectForVideo(videoElem, performance.now());
-        if (results && results.faceLandmarks && results.faceLandmarks.length > 0) {
-          const landmarks = results.faceLandmarks[0];
-          const forehead = landmarks[10];
-          if (forehead) {
-            let fx = (isMirrored ? (1 - forehead.x) : forehead.x) * effectCanvas.width;
-            let fy = forehead.y * effectCanvas.height;
-            detectedFaceForehead = { x: fx, y: fy };
-          }
-        } else {
-          detectedFaceForehead = null;
-        }
-      } catch (e) {
-        detectedFaceForehead = null;
-      }
+    if (currentEffect === 'hearts') {
+      updateHeadCoordinates();
     }
 
     drawParticlesToContext(effectCtx, effectCanvas.width, effectCanvas.height, true);
