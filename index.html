@@ -14,9 +14,30 @@
 <body>
   <header class="nav"><a class="logo" href="#home"><span class="logo-mark">✦</span> poseyyy<span>-io</span></a><nav><a href="#layouts">Layouts</a><a href="#studio">Studio</a><a href="#about">About</a></nav><div class="nav-right-actions" style="display: flex; align-items: center; gap: 12px;">
      <!-- Theme Toggle Button -->
-     <button id="theme-toggle-btn" type="button" aria-label="Toggle Theme" style="background: transparent; border: 1px solid rgba(15,23,42,0.2); padding: 8px 12px; border-radius: 9999px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-       <span id="theme-icon-sun" style="display: none;">☀️</span>
-       <span id="theme-icon-moon" style="display: inline;">🌙</span>
+     <button
+       id="theme-toggle-btn"
+       type="button"
+       aria-label="Toggle Theme"
+       class="theme-toggle-btn"
+       style="background: transparent; border: 1px solid rgba(15,23,42,0.2); padding: 8px 12px; border-radius: 9999px; cursor: pointer; display: flex; align-items: center; justify-content: center;"
+     >
+       <!-- SVG Sun Vector Icon (Shown in Dark Mode to switch to Light) -->
+       <svg id="theme-icon-sun" class="theme-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none; width: 20px; height: 20px;">
+         <circle cx="12" cy="12" r="4"></circle>
+         <path d="M12 2v2"></path>
+         <path d="M12 20v2"></path>
+         <path d="m4.93 4.93 1.41 1.41"></path>
+         <path d="m17.66 17.66 1.41 1.41"></path>
+         <path d="M2 12h2"></path>
+         <path d="M20 12h2"></path>
+         <path d="m6.34 17.66-1.41 1.41"></path>
+         <path d="m19.07 4.93-1.41 1.41"></path>
+       </svg>
+
+       <!-- SVG Moon Vector Icon (Shown in Light Mode to switch to Dark) -->
+       <svg id="theme-icon-moon" class="theme-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline; width: 20px; height: 20px;">
+         <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+       </svg>
      </button>
 
      <!-- Start Creating Button -->
