@@ -1,4 +1,49 @@
 :root{--sky-50:#f0f9ff;--sky-100:#e0f2fe;--sky-200:#bae6fd;--sky-500:#0ea5e9;--sky-600:#0284c7;--sky-700:#0369a1;--slate-900:#0f172a;--slate-800:#1e293b;--slate-600:#475569;--slate-400:#94a3b8;--slate-200:#e2e8f0;--slate-50:#f8fafc;--white:#ffffff;--peach:#ffe4e6;--blue-tint:#e0f2fe;--radius-sm:12px;--radius-md:20px;--radius-lg:28px;--shadow-soft:0 12px 32px rgba(2,132,199,0.06);--shadow-hover:0 20px 48px rgba(2,132,199,0.12)}
+
+html.dark body, body.dark {
+  background: var(--slate-900);
+  background-image: radial-gradient(rgba(14,165,233,0.15) 1px, transparent 1px);
+  color: var(--slate-50);
+}
+html.dark header.nav, body.dark header.nav {
+  background: rgba(15,23,42,0.85);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+html.dark header.nav nav a, body.dark header.nav nav a {
+  color: var(--slate-400);
+}
+html.dark header.nav nav a:hover, body.dark header.nav nav a:hover {
+  color: var(--sky-400);
+}
+html.dark #theme-toggle-btn, body.dark #theme-toggle-btn {
+  background: var(--slate-800);
+  border-color: rgba(255,255,255,0.15);
+  color: var(--slate-200);
+}
+html.dark .step-grid article, body.dark .step-grid article,
+html.dark .template-card, body.dark .template-card,
+html.dark .template-info, body.dark .template-info {
+  background: var(--slate-800);
+  border-color: rgba(255,255,255,0.1);
+  color: var(--white);
+}
+html.dark .section-heading h2, body.dark .section-heading h2,
+html.dark .category-title, body.dark .category-title,
+html.dark .hero h1, body.dark .hero h1,
+html.dark .template-info h3, body.dark .template-info h3 {
+  color: var(--white);
+}
+html.dark .filter, body.dark .filter {
+  background: var(--slate-800);
+  border-color: rgba(255,255,255,0.1);
+  color: var(--slate-300);
+}
+html.dark .filter.active, body.dark .filter.active,
+html.dark .filter:hover, body.dark .filter:hover {
+  background: var(--sky-600);
+  color: var(--white);
+  border-color: var(--sky-600);
+}
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 body{font-family:'DM Sans',sans-serif;color:var(--slate-900);background:var(--slate-50);background-image:radial-gradient(var(--sky-100) 1px,transparent 1px);background-size:24px 24px;line-height:1.5;overflow-x:hidden}

@@ -1,4 +1,37 @@
+function updateThemeUI(isDark) {
+  const sunIcon = document.getElementById('theme-icon-sun');
+  const moonIcon = document.getElementById('theme-icon-moon');
+  if (sunIcon && moonIcon) {
+    if (isDark) {
+      sunIcon.style.display = 'inline';
+      moonIcon.style.display = 'none';
+    } else {
+      sunIcon.style.display = 'none';
+      moonIcon.style.display = 'inline';
+    }
+  }
+}
+
+window.toggleTheme = function() {
+  const isDark = document.documentElement.classList.toggle('dark');
+  document.body.classList.toggle('dark', isDark);
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  updateThemeUI(isDark);
+};
+
+if (localStorage.getItem('theme') === 'dark') {
+  document.documentElement.classList.add('dark');
+  document.body.classList.add('dark');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  const isDarkInitial = document.documentElement.classList.contains('dark') || document.body.classList.contains('dark');
+  updateThemeUI(isDarkInitial);
+
+  const toggleBtn = document.getElementById('theme-toggle-btn');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', window.toggleTheme);
+  }
   const videoElem = document.getElementById('camera-video');
   const canvasElem = document.getElementById('preview-canvas');
   const placeholder = document.getElementById('cameraPlaceholder');
