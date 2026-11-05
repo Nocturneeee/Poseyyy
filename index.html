@@ -41,11 +41,11 @@
      </button>
 
      <!-- Start Creating Button -->
-     <a href="#layouts" class="button button-small start-creating-btn">Start creating <span>→</span></a>
+     <a href="#layouts" class="button button-small start-creating-btn" onclick="enterStudio('tebs-edition')">Start creating <span>→</span></a>
    </div><button class="menu-button" aria-label="Open menu">☰</button></header>
 
   <main>
-    <section class="hero section" id="home"><div class="hero-copy"><div class="eyebrow">✦ Your little moment, captured</div><h1>Make memories<br><em>feel magical.</em></h1><p>A playful photobooth studio in your browser. Choose a layout, strike a pose, and create something worth keeping.</p><div class="hero-actions"><a class="button" href="#layouts">Create your strip <span>→</span></a><a class="text-link" href="#about">How it works <span>↗</span></a></div><div class="trust"><span class="avatars"><i>☻</i><i>✿</i><i>☼</i></span><span>Loved by memory makers<br><b>100% private · Always free</b></span></div></div><div class="hero-art"><div class="sparkle s1">✦</div><div class="sparkle s2">✧</div><div class="polaroid polaroid-back"><div class="fake-photo peach">☼</div><small>good times</small></div><div class="polaroid polaroid-front"><div class="fake-photo blue"><span>♡</span><span>✦</span></div><small>poseyyy studio</small></div><div class="scribble">say<br>cheese!</div></div></section>
+    <section class="hero section" id="home"><div class="hero-copy"><div class="eyebrow">✦ Your little moment, captured</div><h1>Make memories<br><em>feel magical.</em></h1><p>A playful photobooth studio in your browser. Choose a layout, strike a pose, and create something worth keeping.</p><div class="hero-actions"><a class="button" href="#layouts" onclick="enterStudio('tebs-edition')">Create your strip <span>→</span></a><a class="text-link" href="#about">How it works <span>↗</span></a></div><div class="trust"><span class="avatars"><i>☻</i><i>✿</i><i>☼</i></span><span>Loved by memory makers<br><b>100% private · Always free</b></span></div></div><div class="hero-art"><div class="sparkle s1">✦</div><div class="sparkle s2">✧</div><div class="polaroid polaroid-back"><div class="fake-photo peach">☼</div><small>good times</small></div><div class="polaroid polaroid-front"><div class="fake-photo blue"><span>♡</span><span>✦</span></div><small>poseyyy studio</small></div><div class="scribble">say<br>cheese!</div></div></section>
 
     <section class="steps section" id="about"><div class="section-heading"><div><div class="eyebrow">Simple by design</div><h2>From blank canvas<br>to <em>best memories.</em></h2></div><p>No accounts. No uploads. No fuss. Everything happens right here in your browser.</p></div><div class="step-grid"><article><b>01</b><span class="step-icon">▦</span><h3>Pick a layout</h3><p>Choose a frame made for your story.</p></article><article><b>02</b><span class="step-icon">◉</span><h3>Strike a pose</h3><p>Use your camera or upload a favorite photo.</p></article><article><b>03</b><span class="step-icon">✧</span><h3>Make it yours</h3><p>Add a filter, then download your creation.</p></article></div></section>
 
@@ -77,7 +77,7 @@
                   <h3>TEBS Edition</h3>
                   <p>4 Photos · Studio Quality</p>
                 </div>
-                <button class="select-layout" onclick="selectAndLaunchStudio('tebs-edition')">Use layout <span>→</span></button>
+                <button class="select-layout" onclick="enterStudio('tebs-edition')">Use layout <span>→</span></button>
               </div>
             </article>
           </div>
@@ -96,7 +96,7 @@
                   <h3>Halloween Edition</h3>
                   <p>4 Photos · Studio Quality</p>
                 </div>
-                <button class="select-layout" onclick="selectAndLaunchStudio('halloween-red')">Use layout <span>→</span></button>
+                <button class="select-layout" onclick="enterStudio('halloween-red')">Use layout <span>→</span></button>
               </div>
             </article>
             <article class="template-card" data-id="halloween-orange">
@@ -108,7 +108,7 @@
                   <h3>Halloween Orange</h3>
                   <p>4 Photos · Studio Quality</p>
                 </div>
-                <button class="select-layout" onclick="selectAndLaunchStudio('halloween-orange')">Use layout <span>→</span></button>
+                <button class="select-layout" onclick="enterStudio('halloween-orange')">Use layout <span>→</span></button>
               </div>
             </article>
           </div>
@@ -127,7 +127,7 @@
                   <h3>McLaren F1</h3>
                   <p>4 Photos · Studio Quality</p>
                 </div>
-                <button class="select-layout" onclick="selectAndLaunchStudio('mclaren-f1')">Use layout <span>→</span></button>
+                <button class="select-layout" onclick="enterStudio('mclaren-f1')">Use layout <span>→</span></button>
               </div>
             </article>
             <article class="template-card" data-id="oracle-rb">
@@ -139,7 +139,7 @@
                   <h3>Oracle Red Bull</h3>
                   <p>4 Photos · Studio Quality</p>
                 </div>
-                <button class="select-layout" onclick="selectAndLaunchStudio('oracle-rb')">Use layout <span>→</span></button>
+                <button class="select-layout" onclick="enterStudio('oracle-rb')">Use layout <span>→</span></button>
               </div>
             </article>
           </div>
@@ -147,7 +147,47 @@
       </div>
     </section>
 
-    <section class="studio section" id="studio"><div class="studio-shell"><div class="studio-top"><div><div class="eyebrow">Poseyyy studio</div><h2>Ready when <em>you are.</em></h2></div><div class="shot-count">SHOT <b id="shotCount">0</b> / <span id="totalShots">4</span></div></div><div class="studio-content"><div class="camera-wrap"><video id="camera-video" autoplay playsinline muted></video><canvas id="preview-canvas" style="display: none;"></canvas><div class="camera-placeholder" id="cameraPlaceholder"><span>◉</span><b>Your camera preview lives here</b><small>Allow camera access, or upload a photo to begin.</small></div><div class="camera-overlay"><span id="activeFilterLabel">NORMAL</span><span id="cameraStatus">Camera ready</span></div></div><aside class="controls"><div class="thumbs" id="thumbs"><div class="thumb empty">01</div><div class="thumb empty">02</div><div class="thumb empty">03</div><div class="thumb empty">04</div></div><div class="control-row"><button class="round-control" id="mirrorBtn" title="Mirror camera">↔</button><button class="shutter" id="shutter-btn" aria-label="Take photo"><span></span></button><label class="round-control upload-label" title="Upload photo">↑<input type="file" id="local-file-input" accept="image/*" multiple style="display: none;"></label></div><div class="filter-dock"><span>TIMER</span><div class="filter-options" id="timerOptions"><button class="filter-choice timer-choice" data-time="0">0s</button><button class="filter-choice timer-choice active" data-time="3">3s</button><button class="filter-choice timer-choice" data-time="10">10s</button><button class="filter-choice timer-choice" data-time="15">15s</button></div></div>
+    <section class="studio section" id="studio"><div class="studio-shell"><div class="studio-top"><div><div class="eyebrow">Poseyyy studio</div><h2>Ready when <em>you are.</em></h2></div><div class="shot-count">SHOT <b id="shotCount">0</b> / <span id="totalShots">4</span></div></div><div class="studio-content"><div class="camera-wrap"><video id="camera-video" autoplay playsinline muted></video><canvas id="preview-canvas" style="display: none;"></canvas><div class="camera-placeholder" id="cameraPlaceholder"><span>◉</span>
+            <div id="camera-placeholder" class="camera-placeholder-wrapper" style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+              <h3 class="placeholder-title" style="margin: 0; font-size: 16px; font-weight: 600;">Your camera preview lives here</h3>
+              <p class="placeholder-subtitle" style="margin: 0; font-size: 13px; opacity: 0.7;">Allow camera access, or upload a photo to begin.</p>
+              
+              <div class="placeholder-actions" style="margin-top: 12px; display: flex; gap: 12px; justify-content: center; align-items: center;">
+                <!-- Allow Camera Trigger Button -->
+                <button
+                  id="allow-camera-btn"
+                  type="button"
+                  style="
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    gap: 10px !important;
+                    padding: 12px 28px !important;
+                    background-color: #0ba5ec !important;
+                    color: #ffffff !important;
+                    font-family: inherit, system-ui, -apple-system, sans-serif !important;
+                    font-size: 16px !important;
+                    font-weight: 600 !important;
+                    line-height: 1 !important;
+                    border-radius: 9999px !important;
+                    border: none !important;
+                    outline: none !important;
+                    cursor: pointer !important;
+                    box-shadow: 0 4px 14px rgba(11, 165, 236, 0.4) !important;
+                    margin-top: 16px !important;
+                    appearance: none !important;
+                    -webkit-appearance: none !important;
+                  "
+                >
+                  <!-- Solid White Camera Icon -->
+                  <svg width="22" height="18" viewBox="0 0 24 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block; flex-shrink: 0;">
+                    <path d="M4 5H7L9 2H15L17 5H20C21.1 5 22 5.9 22 7V17C22 18.1 21.1 19 20 19H4C2.9 19 2 18.1 2 17V7C2 5.9 2.9 5 4 5ZM12 16C14.21 16 16 14.21 16 12C16 9.79 14.21 8 12 8C9.79 8 8 9.79 8 12C8 14.21 9.79 16 12 16ZM12 10C13.1 10 14 10.9 14 12C14 13.1 13.1 14 12 14C10.9 14 10 13.1 10 12C10 10.9 10.9 10 12 10Z" fill="white"/>
+                  </svg>
+                  <span style="color: #ffffff !important; font-weight: 600 !important;">Allow Camera</span>
+                </button>
+              </div>
+            </div>
+          </div><div class="camera-overlay"><span id="activeFilterLabel">NORMAL</span><span id="cameraStatus">Camera ready</span></div></div><aside class="controls"><div class="thumbs" id="thumbs"><div class="thumb empty">01</div><div class="thumb empty">02</div><div class="thumb empty">03</div><div class="thumb empty">04</div></div><div class="control-row"><button class="round-control" id="mirrorBtn" title="Mirror camera">↔</button><button class="shutter" id="shutter-btn" aria-label="Take photo"><span></span></button><label class="round-control upload-label" title="Upload photo">↑<input type="file" id="local-file-input" accept="image/*" multiple style="display: none;"></label></div><div class="filter-dock"><span>TIMER</span><div class="filter-options" id="timerOptions"><button class="filter-choice timer-choice" data-time="0">0s</button><button class="filter-choice timer-choice active" data-time="3">3s</button><button class="filter-choice timer-choice" data-time="10">10s</button><button class="filter-choice timer-choice" data-time="15">15s</button></div></div>
 <div class="filter-dock"><span>FILTER</span><div class="filter-options"><button class="filter-choice active" data-css="none">Normal</button><button class="filter-choice" data-css="cool">Soft</button><button class="filter-choice" data-css="mono">B&W</button><button class="filter-choice" data-css="warm">Warm</button><button class="filter-choice" data-css="vintage">Fade</button></div></div>
 <div class="filter-dock"><span>EFFECTS</span><div class="filter-options" id="effectOptions"><button class="filter-choice effect-choice active" data-effect="none">None</button><button class="filter-choice effect-choice" data-effect="hearts">Floating Hearts</button><button class="filter-choice effect-choice" data-effect="sparkles">Sparkles</button><button class="filter-choice effect-choice" data-effect="vintage-light">Vintage Light</button></div></div>
 <div style="display: flex; gap: 12px; width: 100%;">

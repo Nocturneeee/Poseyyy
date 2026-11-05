@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
       isMediaPipeReady = false;
     }
   }
-  initMediaPipe();
+  // initMediaPipe() is deferred until enterStudio() is called.
 
   // Create live effect overlay canvas over the video element
   const effectCanvas = document.createElement('canvas');
@@ -529,7 +529,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         card.querySelector('.select-layout').addEventListener('click', () => {
-          selectFrame(tpl.key);
+          enterStudio(tpl.key);
         });
 
         grid.appendChild(card);
@@ -618,49 +618,94 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  async function initCamera() {
+window.enterStudio = enterStudio;
+
+  async function startCameraStream() {
     const videoElement = document.querySelector('video') || document.querySelector('#camera-video');
     const placeholderElem = document.querySelector('#cameraPlaceholder') || document.querySelector('.camera-placeholder');
     const statusBadge = document.querySelector('#cameraStatus') || document.querySelector('.camera-status-badge');
 
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'user'
-        },
-        audio: false
-      });
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        facingMode: 'user'
+      },
+      audio: false
+    });
 
-      if (videoElement) {
-        videoElement.srcObject = stream;
-        videoElement.setAttribute('playsinline', '');
-        videoElement.setAttribute('muted', '');
-        videoElement.muted = true;
-        
-        await videoElement.play();
+    if (videoElement) {
+      videoElement.srcObject = stream;
+      videoElement.setAttribute('playsinline', '');
+      videoElement.setAttribute('muted', '');
+      videoElement.muted = true;
+      
+      await videoElement.play();
 
-        // EXPLICIT DOM SWAP
-        videoElement.style.display = 'block';
-        if (placeholderElem) placeholderElem.style.display = 'none';
-        if (statusBadge) statusBadge.textContent = 'Camera ready';
-      }
-
-    } catch (err) {
-      console.error('CAMERA INIT ERROR:', err);
-      if (placeholderElem) placeholderElem.style.display = 'flex';
-      if (videoElement) videoElement.style.display = 'none';
-      if (statusBadge) statusBadge.textContent = 'Camera Error';
-      alert('Camera access denied or unavailable. Please check browser permissions.');
+      // EXPLICIT DOM SWAP
+      videoElement.style.display = 'block';
+      if (placeholderElem) placeholderElem.style.display = 'none';
+      if (statusBadge) statusBadge.textContent = 'Camera ready';
     }
   }
-  initCamera();
 
-  if (mirrorBtn) {
-    mirrorBtn.addEventListener('click', () => {
-      isMirrored = !isMirrored;
-      if (videoElem) videoElem.classList.toggle('unmirrored', !isMirrored);
+  function showCameraLoadingState(message) {
+    const statusBadge = document.querySelector('#cameraStatus') || document.querySelector('.camera-status-badge');
+    if (statusBadge) statusBadge.textContent = message;
+  }
+
+  function hideCameraLoadingState() {
+    const statusBadge = document.querySelector('#cameraStatus') || document.querySelector('.camera-status-badge');
+    if (statusBadge) statusBadge.textContent = 'Camera ready';
+  }
+
+  async function enterStudio(selectedLayoutId) {
+    // 1. Switch View Mode to Studio UI
+    viewMode = 'studio';
+    if (selectedLayoutId) {
+      selectFrame(selectedLayoutId, false);
+    }
+    
+    // Update DOM visibility (Catalog and Studio view sections)
+    const catalogView = document.querySelector('#catalog-view') || document.querySelector('.layouts');
+    const studioView = document.querySelector('#studio-view') || document.querySelector('#studio');
+    if (catalogView) catalogView.style.display = 'none';
+    if (studioView) {
+      studioView.style.display = 'block';
+      studioView.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // 2. Request Camera Access ONLY NOW
+    try {
+      await startCameraStream();
+    } catch (err) {
+      console.error("Camera access denied or failed:", err);
+      alert("Camera access is required to use the photo booth.");
+      return;
+    }
+
+    // 3. Lazy Load MediaPipe in Background if not already ready
+    if (!isMediaPipeReady) {
+      showCameraLoadingState("Initializing AR Filters...");
+      await initMediaPipe();
+      hideCameraLoadingState();
+    }
+  }
+
+  const allowCameraBtn = document.getElementById('allow-camera-btn');
+  if (allowCameraBtn) {
+    allowCameraBtn.addEventListener('click', async () => {
+      try {
+        await startCameraStream();
+        if (!isMediaPipeReady) {
+          showCameraLoadingState("Initializing AR Filters...");
+          await initMediaPipe();
+          hideCameraLoadingState();
+        }
+      } catch (err) {
+        console.error("Camera access denied or failed:", err);
+        alert("Camera access is required to use the photo booth.");
+      }
     });
   }
 

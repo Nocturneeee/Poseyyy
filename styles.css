@@ -150,6 +150,52 @@ aside.controls{display:flex;flex-direction:column;justify-content:space-between;
 .filter-choice.active,.filter-choice:hover{background:var(--sky-500)}
 .download-button{width:100%;justify-content:center;padding:16px;background:var(--sky-500)}
 .download-button:disabled{opacity:0.4;cursor:not-allowed;box-shadow:none}
+
+/* Camera Allow Button Styling */
+button#allow-camera-btn,
+.btn-allow-camera,
+.btn-allow-camera-custom {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 8px 18px !important;
+  background-color: #0084c7 !important; /* Cyan blue matching active state */
+  color: #ffffff !important;
+  font-size: 0.875rem !important; /* 14px */
+  font-weight: 600 !important;
+  border-radius: 9999px !important; /* Full pill shape */
+  border: none !important;
+  outline: none !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  box-shadow: 0 4px 12px rgba(0, 132, 199, 0.3) !important;
+  margin-top: 12px !important;
+}
+
+button#allow-camera-btn:hover,
+.btn-allow-camera:hover,
+.btn-allow-camera-custom:hover {
+  background-color: #0284c7 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 16px rgba(0, 132, 199, 0.4) !important;
+}
+
+button#allow-camera-btn:active,
+.btn-allow-camera:active,
+.btn-allow-camera-custom:active {
+  transform: translateY(0) !important;
+}
+
+/* Ensure the SVG icon inside inherits text color */
+button#allow-camera-btn svg,
+.btn-allow-camera svg,
+.btn-allow-camera-custom svg {
+  width: 18px !important;
+  height: 16px !important;
+  stroke: none !important;
+  fill: #ffffff !important;
+}
 .privacy-note{font-size:11px;color:var(--slate-400);text-align:center;letter-spacing:0.02em}
 .closing{text-align:center;display:flex;flex-direction:column;align-items:center;gap:28px;padding-bottom:120px}
 .closing h2{font-size:44px}
